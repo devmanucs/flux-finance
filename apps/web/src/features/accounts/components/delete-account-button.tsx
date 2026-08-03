@@ -35,9 +35,10 @@ export function DeleteAccountButton({ account }: { account: Account }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel render={<Button variant="outline" />}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            render={<Button variant="destructive" disabled={isPending} />}
+            variant="destructive"
+            disabled={isPending}
             onClick={() => mutate({ id: String(account.id) })}
           >
             {isPending ? "Excluindo..." : "Excluir"}

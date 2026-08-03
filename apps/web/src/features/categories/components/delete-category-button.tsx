@@ -37,9 +37,10 @@ export function DeleteCategoryButton({ category }: { category: Category }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel render={<Button variant="outline" />}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            render={<Button variant="destructive" disabled={isPending} />}
+            variant="destructive"
+            disabled={isPending}
             onClick={() => mutate({ id: String(category.id) })}
           >
             {isPending ? "Excluindo..." : "Excluir"}
