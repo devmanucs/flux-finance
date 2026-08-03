@@ -24,11 +24,15 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const { token, user } = await this.authService.login(dto.email, dto.password);
+    const isProduction = this.configService.get("NODE_ENV") === "production";
 
     response.cookie(COOKIE_NAME, token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: this.configService.get("NODE_ENV") === "production",
+      // Em produção, web (Vercel) e api (Railway) ficam em domínios
+      // diferentes, então o cookie é cross-site: precisa de sameSite=none
+      // + secure para o browser aceitar mandá-lo de volta na API.
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction,
       maxAge: COOKIE_MAX_AGE_MS,
       path: "/",
     });
