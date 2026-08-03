@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionKind {
+  INCOME
+  EXPENSE
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  INVESTMENT
+  CASH
+}
+
+// IDs como Int/autoincrement (não BigInt): evita o gotcha de serialização
+// de BigInt em JSON (Nest/Express) — aceitável pro volume de um app de
+// finanças pessoais. Datas em timestamptz e dinheiro em Decimal(12,2), não
+// Float, seguindo as boas práticas de Postgres do Supabase.
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt DateTime @updatedAt @db.Timestamptz() @map("updated_at")
+  accounts  Account[]
+
+  @@map("users")
+}
+
+model Account {
+  id           Int           @id @default(autoincrement())
+  userId       Int           @map("user_id")
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  type         AccountType   @default(CHECKING)
+  balance      Decimal       @default(0) @db.Decimal(12, 2)
+  currency     String        @default("BRL")
+  createdAt    DateTime      @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt    DateTime      @updatedAt @db.Timestamptz() @map("updated_at")
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id           Int             @id @default(autoincrement())
+  name         String
+  kind         TransactionKind @default(EXPENSE)
+  color        String?
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id          Int             @id @default(autoincrement())
+  accountId   Int             @map("account_id")
+  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId  Int?            @map("category_id")
+  category    Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  description String
+  amount      Decimal         @db.Decimal(12, 2)
+  kind        TransactionKind @default(EXPENSE)
+  date        DateTime        @default(now()) @db.Timestamptz()
+  createdAt   DateTime        @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt   DateTime        @updatedAt @db.Timestamptz() @map("updated_at")
+
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+model Budget {
+  id         Int      @id @default(autoincrement())
+  categoryId Int      @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  month      Int
+  year       Int
+  limit      Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt  DateTime @updatedAt @db.Timestamptz() @map("updated_at")
+
+  @@index([categoryId])
+  @@map("budgets")
+}

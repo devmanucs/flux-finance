@@ -1,0 +1,19 @@
+{
+  "name": "@flux-finance/config",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "typescript",
+    "eslint"
+  ],
+  "exports": {
+    "./typescript/*": "./typescript/*",
+    "./eslint/*": "./eslint/*"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "typescript": "^5",
+    "typescript-eslint": "^8.19.0"
+  }
+}
