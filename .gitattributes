@@ -1,0 +1,6 @@
+# Skills/agents e tooling local — não entram na barra de linguagens do GitHub.
+.claude/** linguist-vendored
+
+# Output de build versionado por engano / gerado — não conta como código-fonte.
+packages/database/dist/** linguist-generated
+**/*.tsbuildinfo linguist-generated
