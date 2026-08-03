@@ -1,6 +1,5 @@
 import axios from "axios";
 import { toast } from "sonner";
-import { getStoredToken } from "@/features/auth/lib/token";
 
 declare module "axios" {
   export interface AxiosRequestConfig {
@@ -14,20 +13,24 @@ declare module "axios" {
 
 export const authApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000",
-});
-
-authApi.interceptors.request.use((config) => {
-  const token = getStoredToken();
-  if (token) {
-    config.headers.set("Authorization", `Bearer ${token}`);
-  }
-  return config;
+  // A sessão vive num cookie httpOnly setado pelo Nest — o axios precisa
+  // mandar/receber cookies em requests cross-origin (portas diferentes em
+  // dev).
+  withCredentials: true,
 });
 
 authApi.interceptors.response.use(
   (response) => response,
   (error) => {
     const config = error.config as { showToast?: boolean } | undefined;
+
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+      return Promise.reject(error);
+    }
+
     if (config?.showToast !== false) {
       const message =
         error.response?.data?.message ?? "Ocorreu um erro inesperado.";

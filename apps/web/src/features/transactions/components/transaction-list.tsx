@@ -32,6 +32,7 @@ export function TransactionList() {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Categoria</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
               </TableRow>
@@ -40,6 +41,9 @@ export function TransactionList() {
               {transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{transaction.description}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {transaction.category?.name ?? "—"}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={transaction.kind === "INCOME" ? "default" : "destructive"}>
                       {transaction.kind === "INCOME" ? "Receita" : "Despesa"}

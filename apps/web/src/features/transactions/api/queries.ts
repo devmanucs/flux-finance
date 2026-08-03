@@ -1,12 +1,16 @@
-import type { Transaction } from "@flux-finance/database";
+import type { Prisma, Transaction } from "@flux-finance/database";
 import { useCreate, useDelete, useFetch, useUpdate } from "@/lib/hooks/use-crud";
 import type { TransactionFormValues } from "../schemas/transaction-schema";
 
 const ROUTE = "/transactions";
 const QUERY_KEY = "transactions";
 
+export type TransactionWithCategory = Prisma.TransactionGetPayload<{
+  include: { category: true };
+}>;
+
 export function useTransactions() {
-  return useFetch<Transaction[]>({
+  return useFetch<TransactionWithCategory[]>({
     queryKey: [QUERY_KEY],
     route: ROUTE,
   });

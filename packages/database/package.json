@@ -5,20 +5,28 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"commonjs\"} prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "create-user": "ts-node prisma/create-user.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "bcrypt": "^5.1.1"
   },
   "devDependencies": {
     "@flux-finance/config": "workspace:*",
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20",
     "prisma": "^6.1.0",
     "ts-node": "^10.9.2",

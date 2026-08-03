@@ -41,6 +41,11 @@ yarn-error.log*
 .env*
 !.env.example
 
+# scripts que criam/populam usuários — não sobem pro repo de propósito
+# (só existem localmente; sem eles, ninguém consegue criar login sozinho)
+packages/database/prisma/seed.ts
+packages/database/prisma/create-user.ts
+
 # vercel
 .vercel
 
