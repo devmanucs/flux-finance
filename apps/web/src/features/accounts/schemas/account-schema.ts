@@ -16,6 +16,8 @@ export const accountSchema = z.object({
   type: z.enum(["CHECKING", "SAVINGS", "CREDIT_CARD", "INVESTMENT", "CASH"]),
   balance: z.coerce.number().optional(),
   currency: z.string().min(1).default("BRL"),
+  dueDate: z.string().optional().nullable(),
+  isPaid: z.boolean().default(false),
 });
 
 export type AccountFormValues = z.infer<typeof accountSchema>;

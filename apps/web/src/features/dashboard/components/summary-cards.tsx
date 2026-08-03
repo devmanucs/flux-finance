@@ -1,9 +1,11 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
+import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
+import { ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
+import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
+import { formatMoney } from "@/lib/format-money";
 import { useDashboardSummary } from "../api/queries";
-
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 function StatCard({
   label,
@@ -27,17 +29,48 @@ function StatCard({
         <CardTitle className="text-sm font-normal text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className={`font-heading text-2xl font-semibold ${toneClass}`}>{currency.format(value)}</p>
+        <p className={`font-heading text-2xl font-semibold ${toneClass}`}>{formatMoney(value)}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-4 w-24" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-8 w-32" />
       </CardContent>
     </Card>
   );
 }
 
 export function SummaryCards() {
-  const { data, isPending } = useDashboardSummary();
+  const { data, isPending, isError, error, refetch } = useDashboardSummary();
 
-  if (isPending || !data) {
-    return <p className="text-sm text-muted-foreground">Carregando resumo...</p>;
+  if (isPending) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return isPermissionError(error) ? (
+      <UnauthorizedState description="Você precisa entrar novamente para ver o resumo financeiro." />
+    ) : (
+      <ErrorState
+        description={`Não foi possível carregar o resumo${getErrorStatus(error) ? ` (erro ${getErrorStatus(error)})` : ""}.`}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   return (

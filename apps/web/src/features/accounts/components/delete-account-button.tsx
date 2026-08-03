@@ -1,6 +1,7 @@
 "use client";
 
 import type { Account } from "@flux-finance/database";
+import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import {
   AlertDialog,
@@ -13,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@flux-finance/ui/components/ui/alert-dialog";
+import { Icon } from "@flux-finance/ui/components/ui/icon";
 import { useDeleteAccount } from "../api/queries";
 
 export function DeleteAccountButton({ account }: { account: Account }) {
@@ -20,8 +22,10 @@ export function DeleteAccountButton({ account }: { account: Account }) {
 
   return (
     <AlertDialog>
-      <AlertDialogTrigger render={<Button variant="ghost" size="sm" />}>
-        Excluir
+      <AlertDialogTrigger
+        render={<Button variant="ghost" size="icon-sm" aria-label={`Excluir ${account.name}`} />}
+      >
+        <Icon icon={Delete02Icon} />
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

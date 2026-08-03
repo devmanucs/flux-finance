@@ -1,14 +1,16 @@
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@flux-finance/ui/components/ui/sidebar";
+import { Suspense } from "react";
+import { SidebarInset, SidebarProvider } from "@flux-finance/ui/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { DashboardHeader } from "@/components/layout/dashboard-header";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <Suspense fallback={<div className="w-(--sidebar-width) border-r border-sidebar-border" />}>
+        <AppSidebar />
+      </Suspense>
       <SidebarInset>
-        <header className="flex items-center gap-2 border-b border-border px-6 py-4">
-          <SidebarTrigger />
-        </header>
+        <DashboardHeader />
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-8">
           {children}
         </main>

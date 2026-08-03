@@ -83,7 +83,7 @@ export function CategoryFormDialog({
               label="Tipo"
               options={categoryKindOptions}
             />
-            <FormFields.Input<CategoryFormValues> name="color" label="Cor" type="color" />
+            <FormFields.Color<CategoryFormValues> name="color" label="Cor" />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Salvando..." : "Salvar"}

@@ -1,9 +1,7 @@
 "use client";
 
+import { FormFields } from "@/components/forms/form-fields";
 import type { Account } from "@flux-finance/database";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, type ReactNode } from "react";
-import { FormProvider, useForm } from "react-hook-form";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import {
   Dialog,
@@ -14,9 +12,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@flux-finance/ui/components/ui/dialog";
-import { FormFields } from "@/components/forms/form-fields";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState, type ReactNode } from "react";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { useCreateAccount, useUpdateAccount } from "../api/queries";
-import { accountSchema, accountTypeOptions, type AccountFormValues } from "../schemas/account-schema";
+import { toDateInputValue } from "../lib/payment-status";
+import {
+  accountSchema,
+  accountTypeOptions,
+  type AccountFormValues,
+} from "../schemas/account-schema";
+
+function toFormValues(account?: Account): AccountFormValues {
+  return {
+    name: account?.name ?? "",
+    type: account?.type ?? "CHECKING",
+    balance: account ? Number(account.balance) : 0,
+    currency: account?.currency ?? "BRL",
+    dueDate: toDateInputValue(account?.dueDate),
+    isPaid: account?.isPaid ?? false,
+  };
+}
 
 export function AccountFormDialog({
   trigger,
@@ -30,33 +46,42 @@ export function AccountFormDialog({
 
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountSchema),
-    defaultValues: {
-      name: account?.name ?? "",
-      type: account?.type ?? "CHECKING",
-      balance: account ? Number(account.balance) : 0,
-      currency: account?.currency ?? "BRL",
-    },
+    defaultValues: toFormValues(account),
   });
 
   const { mutate: createAccount, isPending: isCreating } = useCreateAccount();
   const { mutate: updateAccount, isPending: isUpdating } = useUpdateAccount();
   const isPending = isCreating || isUpdating;
+  const accountType = useWatch({ control: form.control, name: "type" });
+
+  useEffect(() => {
+    if (open) {
+      form.reset(toFormValues(account));
+    }
+  }, [open, account, form]);
 
   const onSubmit = form.handleSubmit((values) => {
+    const payload = {
+      ...values,
+      dueDate: values.dueDate
+        ? new Date(`${values.dueDate}T12:00:00`).toISOString()
+        : null,
+    };
+
     if (isEditing && account) {
       updateAccount(
-        { id: String(account.id), formData: values },
+        { id: String(account.id), formData: payload },
         { onSuccess: () => setOpen(false) },
       );
       return;
     }
 
     createAccount(
-      { formData: values },
+      { formData: payload },
       {
         onSuccess: () => {
           setOpen(false);
-          form.reset();
+          form.reset(toFormValues());
         },
       },
     );
@@ -86,16 +111,20 @@ export function AccountFormDialog({
               label="Tipo"
               options={accountTypeOptions}
             />
-            <FormFields.Input<AccountFormValues>
+            <FormFields.Money<AccountFormValues>
               name="balance"
               label={
-                form.watch("type") === "CREDIT_CARD"
+                accountType === "CREDIT_CARD"
                   ? "Fatura atual (quanto você deve)"
                   : "Saldo atual"
               }
-              type="number"
-              step="0.01"
             />
+            <FormFields.Date<AccountFormValues>
+              name="dueDate"
+              label="Vencimento"
+              placeholder="Selecionar vencimento"
+            />
+            <FormFields.Switch<AccountFormValues> name="isPaid" label="Já paga" />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Salvando..." : "Salvar"}

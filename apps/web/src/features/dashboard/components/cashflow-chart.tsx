@@ -17,6 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@flux-finance/ui/components/ui/select";
+import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
+import { EmptyState, ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
+import { ChartLineData02Icon } from "@hugeicons/core-free-icons";
+import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
+import { formatMoney } from "@/lib/format-money";
 import { useCashflow } from "../api/queries";
 
 const chartConfig = {
@@ -30,8 +35,6 @@ const RANGE_OPTIONS = [
   { value: "24", label: "2 anos" },
 ];
 
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
 function formatMonth(month: string) {
   const [year, monthNumber] = month.split("-");
   const date = new Date(Number(year), Number(monthNumber) - 1, 1);
@@ -40,7 +43,7 @@ function formatMonth(month: string) {
 
 export function CashflowChart() {
   const [months, setMonths] = useState("6");
-  const { data = [], isPending } = useCashflow(Number(months));
+  const { data = [], isPending, isError, error, refetch } = useCashflow(Number(months));
 
   const { total, trendPct } = useMemo(() => {
     const totalNet = data.reduce((sum, point) => sum + (point.income - point.expense), 0);
@@ -66,7 +69,7 @@ export function CashflowChart() {
             Fluxo de caixa (entradas x saídas)
           </CardTitle>
           <div className="flex items-center gap-2">
-            <span className="font-heading text-2xl font-semibold">{currency.format(total)}</span>
+            <span className="font-heading text-2xl font-semibold">{formatMoney(total)}</span>
             {trendPct !== null && (
               <Badge variant={trendPct >= 0 ? "default" : "destructive"}>
                 {trendPct >= 0 ? "+" : ""}
@@ -76,7 +79,11 @@ export function CashflowChart() {
           </div>
         </div>
         <CardAction>
-          <Select value={months} onValueChange={(value) => value && setMonths(value)}>
+          <Select
+            items={RANGE_OPTIONS}
+            value={months}
+            onValueChange={(value) => value && setMonths(value)}
+          >
             <SelectTrigger className="w-[120px]">
               <SelectValue />
             </SelectTrigger>
@@ -92,9 +99,27 @@ export function CashflowChart() {
       </CardHeader>
       <CardContent>
         {isPending ? (
-          <p className="text-sm text-muted-foreground">Carregando...</p>
+          <Skeleton className="h-64 w-full" />
+        ) : isError ? (
+          isPermissionError(error) ? (
+            <UnauthorizedState
+              className="h-64"
+              description="Você precisa entrar novamente para ver o fluxo de caixa."
+            />
+          ) : (
+            <ErrorState
+              className="h-64"
+              description={`Não foi possível carregar o gráfico${getErrorStatus(error) ? ` (erro ${getErrorStatus(error)})` : ""}.`}
+              onRetry={() => refetch()}
+            />
+          )
         ) : data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sem transações no período.</p>
+          <EmptyState
+            className="h-64"
+            icon={ChartLineData02Icon}
+            title="Sem transações no período"
+            description="Lance receitas e despesas para ver a evolução do seu caixa aqui."
+          />
         ) : (
           <ChartContainer config={chartConfig} className="h-64 w-full">
             <AreaChart data={data}>

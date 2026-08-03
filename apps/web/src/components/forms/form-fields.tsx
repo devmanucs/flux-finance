@@ -1,6 +1,8 @@
 "use client";
 
 import { Checkbox } from "@flux-finance/ui/components/ui/checkbox";
+import { ColorPicker } from "@flux-finance/ui/components/ui/color-picker";
+import { DatePicker } from "@flux-finance/ui/components/ui/date-picker";
 import {
   Field,
   FieldContent,
@@ -32,6 +34,7 @@ import { cn } from "@flux-finance/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { type ComponentPropsWithRef, type MouseEvent, type ReactNode } from "react";
 import { Control, Controller, FieldValues, Path, useFormContext } from "react-hook-form";
+import { formatMoney, moneyFromInputDigits } from "@/lib/format-money";
 
 const fieldFormSectionVariants = cva("rounded-lg p-4 md:p-5", {
   variants: {
@@ -217,6 +220,13 @@ const FieldFormSelect = <T extends FieldValues = FieldValues, TOption = { value:
   const getValue = itemToValue ?? ((item: TOption) => String((item as { value?: string })?.value ?? ""));
   const getLabel = itemToLabel ?? ((item: TOption) => String((item as { label?: string })?.label ?? ""));
 
+  // Base UI Select.Value imprime o value cru por padrão; o mapeamento `items`
+  // faz o trigger mostrar o label mascarado.
+  const selectItems = options.map((option) => ({
+    value: getValue(option),
+    label: renderOption?.(option) ?? getLabel(option),
+  }));
+
   return (
     <Controller<T>
       name={name}
@@ -225,21 +235,19 @@ const FieldFormSelect = <T extends FieldValues = FieldValues, TOption = { value:
         <Field className={cn(fieldClassName)} data-invalid={fieldState.invalid}>
           {label && <FieldLabel htmlFor={name}>{label}</FieldLabel>}
           <Select
-            value={field.value == null || field.value === "" ? undefined : String(field.value)}
-            onValueChange={field.onChange}
+            items={selectItems}
+            value={field.value == null || field.value === "" ? null : String(field.value)}
+            onValueChange={(value) => field.onChange(value ?? "")}
           >
             <SelectTrigger id={name} className="w-full">
               <SelectValue placeholder={placeholder || label} />
             </SelectTrigger>
             <SelectContent>
-              {options.map((option, idx) => {
-                const value = getValue(option);
-                return (
-                  <SelectItem key={value || idx} value={value}>
-                    {renderOption?.(option) ?? getLabel(option)}
-                  </SelectItem>
-                );
-              })}
+              {selectItems.map((item, idx) => (
+                <SelectItem key={item.value || idx} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           {showError && fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -631,12 +639,125 @@ const FieldFormSlider = <T extends FieldValues = FieldValues>({
   );
 };
 
+const FieldFormDate = <T extends FieldValues = FieldValues>({
+  name,
+  label,
+  fieldClassName,
+  placeholder = "Selecionar data",
+  showError = true,
+}: {
+  name: Path<T>;
+  label?: string;
+  fieldClassName?: string;
+  placeholder?: string;
+  showError?: boolean;
+}) => {
+  const form = useFormContext<T>();
+
+  return (
+    <Controller<T>
+      name={name}
+      control={form.control}
+      render={({ field, fieldState }) => (
+        <Field className={cn(fieldClassName)} data-invalid={fieldState.invalid}>
+          {label && <FieldLabel htmlFor={name}>{label}</FieldLabel>}
+          <DatePicker
+            id={name}
+            value={typeof field.value === "string" ? field.value : ""}
+            onChange={field.onChange}
+            placeholder={placeholder}
+            aria-invalid={fieldState.invalid}
+          />
+          {showError && fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+        </Field>
+      )}
+    />
+  );
+};
+
+const FieldFormColor = <T extends FieldValues = FieldValues>({
+  name,
+  label,
+  fieldClassName,
+  showError = true,
+}: {
+  name: Path<T>;
+  label?: string;
+  fieldClassName?: string;
+  showError?: boolean;
+}) => {
+  const form = useFormContext<T>();
+
+  return (
+    <Controller<T>
+      name={name}
+      control={form.control}
+      render={({ field, fieldState }) => (
+        <Field className={cn(fieldClassName)} data-invalid={fieldState.invalid}>
+          {label && <FieldLabel htmlFor={name}>{label}</FieldLabel>}
+          <ColorPicker
+            id={name}
+            value={typeof field.value === "string" ? field.value : ""}
+            onChange={field.onChange}
+            aria-invalid={fieldState.invalid}
+          />
+          {showError && fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+        </Field>
+      )}
+    />
+  );
+};
+
+const FieldFormMoney = <T extends FieldValues = FieldValues>({
+  name,
+  label,
+  fieldClassName,
+  placeholder = "R$ 0,00",
+  showError = true,
+}: {
+  name: Path<T>;
+  label?: string;
+  fieldClassName?: string;
+  placeholder?: string;
+  showError?: boolean;
+}) => {
+  const form = useFormContext<T>();
+
+  return (
+    <Controller<T>
+      name={name}
+      control={form.control}
+      render={({ field, fieldState }) => (
+        <Field className={cn(fieldClassName)} data-invalid={fieldState.invalid}>
+          {label && <FieldLabel htmlFor={name}>{label}</FieldLabel>}
+          <Input
+            id={name}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder={placeholder}
+            aria-invalid={fieldState.invalid}
+            value={formatMoney(typeof field.value === "number" ? field.value : Number(field.value) || 0)}
+            onChange={(event) => field.onChange(moneyFromInputDigits(event.target.value))}
+            onBlur={field.onBlur}
+            name={field.name}
+            ref={field.ref}
+          />
+          {showError && fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+        </Field>
+      )}
+    />
+  );
+};
+
 export const FormFields = {
   Section: FieldFormSection,
   Input: FieldFormInput,
   Textarea: FieldFormTextArea,
   Select: FieldFormSelect,
   NativeSelect: FieldFormNativeSelect,
+  Date: FieldFormDate,
+  Color: FieldFormColor,
+  Money: FieldFormMoney,
   Checkbox: FieldFormCheckbox,
   CheckboxGroup: FieldFormCheckboxGroup,
   RadioGroup: FieldFormRadioGroup,

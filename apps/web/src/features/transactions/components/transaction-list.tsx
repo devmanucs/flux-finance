@@ -1,7 +1,10 @@
 "use client";
 
-import { Badge } from "@flux-finance/ui/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
+import { MoneyExchange01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { Button } from "@flux-finance/ui/components/ui/button";
+import { Card, CardContent } from "@flux-finance/ui/components/ui/card";
+import { Icon } from "@flux-finance/ui/components/ui/icon";
+import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -10,23 +13,62 @@ import {
   TableHeader,
   TableRow,
 } from "@flux-finance/ui/components/ui/table";
-import { useTransactions } from "../api/queries";
+import { EmptyState, ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
+import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
+import { formatMoney } from "@/lib/format-money";
+import { useTransactions, type TransactionWithCategory } from "../api/queries";
+import { DeleteTransactionButton } from "./delete-transaction-button";
 
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+function TransactionRowSkeleton() {
+  return (
+    <TableRow>
+      <TableCell>
+        <Skeleton className="h-4 w-32" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-16" />
+      </TableCell>
+      <TableCell className="text-right">
+        <Skeleton className="ml-auto h-4 w-16" />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-1">
+          <Skeleton className="size-8 rounded-full" />
+          <Skeleton className="size-8 rounded-full" />
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
-export function TransactionList() {
-  const { data: transactions = [], isPending } = useTransactions();
+export function TransactionList({
+  onEdit,
+}: {
+  onEdit?: (transaction: TransactionWithCategory) => void;
+}) {
+  const { data: transactions = [], isPending, isError, error, refetch } = useTransactions();
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Transações</CardTitle>
-      </CardHeader>
       <CardContent>
-        {isPending ? (
-          <p className="text-sm text-muted-foreground">Carregando...</p>
-        ) : transactions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma transação ainda.</p>
+        {isError ? (
+          isPermissionError(error) ? (
+            <UnauthorizedState description="Você precisa entrar novamente para ver suas transações." />
+          ) : (
+            <ErrorState
+              description={`Não foi possível carregar suas transações${getErrorStatus(error) ? ` (erro ${getErrorStatus(error)})` : ""}.`}
+              onRetry={() => refetch()}
+            />
+          )
+        ) : !isPending && transactions.length === 0 ? (
+          <EmptyState
+            icon={MoneyExchange01Icon}
+            title="Nenhuma transação ainda"
+            description="Lance sua primeira receita ou despesa pelo formulário ao lado para começar a ver seu fluxo de caixa."
+          />
         ) : (
           <Table>
             <TableHeader>
@@ -35,26 +77,54 @@ export function TransactionList() {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {transaction.category?.name ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={transaction.kind === "INCOME" ? "default" : "destructive"}>
+              {isPending ? (
+                <>
+                  <TransactionRowSkeleton />
+                  <TransactionRowSkeleton />
+                  <TransactionRowSkeleton />
+                </>
+              ) : (
+                transactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell>{transaction.description}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {transaction.category?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {transaction.kind === "INCOME" ? "Receita" : "Despesa"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {/* amount chega como Decimal (Prisma) -> string via JSON */}
-                    {currency.format(Number(transaction.amount))}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        transaction.kind === "INCOME"
+                          ? "text-right font-medium text-emerald-600 dark:text-emerald-400"
+                          : "text-right font-medium text-destructive"
+                      }
+                    >
+                      {formatMoney(transaction.amount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {onEdit ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Editar ${transaction.description}`}
+                            onClick={() => onEdit(transaction)}
+                          >
+                            <Icon icon={PencilEdit02Icon} />
+                          </Button>
+                        ) : null}
+                        <DeleteTransactionButton transaction={transaction} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         )}

@@ -2,7 +2,11 @@
   "extends": "@flux-finance/config/typescript/nestjs.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // Precisa viver dentro de dist: o nest-cli usa deleteOutDir e, se o
+    // .tsbuildinfo ficar na raiz, o tsc incremental acha que não há nada a
+    // emitir e sobe sem gerar dist/main.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "test"]

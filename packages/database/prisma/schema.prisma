@@ -45,11 +45,15 @@ model Account {
   type         AccountType   @default(CHECKING)
   balance      Decimal       @default(0) @db.Decimal(12, 2)
   currency     String        @default("BRL")
+  // Vencimento da fatura/conta; null = sem acompanhamento de status.
+  dueDate      DateTime?     @db.Timestamptz() @map("due_date")
+  isPaid       Boolean       @default(false) @map("is_paid")
   createdAt    DateTime      @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt    DateTime      @updatedAt @db.Timestamptz() @map("updated_at")
   transactions Transaction[]
 
   @@index([userId])
+  @@index([userId, dueDate, isPaid])
   @@map("accounts")
 }
 

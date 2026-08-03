@@ -1,6 +1,7 @@
 "use client";
 
 import { Cell, Pie, PieChart } from "recharts";
+import { PieChartIcon } from "@hugeicons/core-free-icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
 import {
   ChartContainer,
@@ -8,6 +9,10 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@flux-finance/ui/components/ui/chart";
+import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
+import { EmptyState, ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
+import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
+import { formatMoney } from "@/lib/format-money";
 import { useByCategory } from "../api/queries";
 
 const FALLBACK_COLORS = [
@@ -18,10 +23,8 @@ const FALLBACK_COLORS = [
   "var(--chart-5)",
 ];
 
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
 export function CategoryChart() {
-  const { data = [], isPending } = useByCategory();
+  const { data = [], isPending, isError, error, refetch } = useByCategory();
 
   const chartConfig = data.reduce((config, category, index) => {
     const key = String(category.categoryId ?? "none");
@@ -39,9 +42,27 @@ export function CategoryChart() {
       </CardHeader>
       <CardContent>
         {isPending ? (
-          <p className="text-sm text-muted-foreground">Carregando...</p>
+          <Skeleton className="mx-auto aspect-square h-56" />
+        ) : isError ? (
+          isPermissionError(error) ? (
+            <UnauthorizedState
+              className="h-56"
+              description="Você precisa entrar novamente para ver os gastos por categoria."
+            />
+          ) : (
+            <ErrorState
+              className="h-56"
+              description={`Não foi possível carregar o gráfico${getErrorStatus(error) ? ` (erro ${getErrorStatus(error)})` : ""}.`}
+              onRetry={() => refetch()}
+            />
+          )
         ) : data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sem despesas neste mês.</p>
+          <EmptyState
+            className="h-56"
+            icon={PieChartIcon}
+            title="Sem despesas neste mês"
+            description="Categorize suas despesas para ver a distribuição por categoria aqui."
+          />
         ) : (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <ChartContainer config={chartConfig} className="mx-auto aspect-square h-56">
@@ -76,7 +97,7 @@ export function CategoryChart() {
                     />
                     {category.name}
                   </span>
-                  <span className="text-muted-foreground">{currency.format(category.total)}</span>
+                  <span className="text-muted-foreground">{formatMoney(category.total)}</span>
                 </li>
               ))}
             </ul>

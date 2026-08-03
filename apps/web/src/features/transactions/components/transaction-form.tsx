@@ -2,39 +2,78 @@
 
 import type { Account } from "@flux-finance/database";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import { FormFields } from "@/components/forms/form-fields";
 import { useAccounts } from "@/features/accounts";
 import { useCategories } from "@/features/categories";
-import { useCreateTransaction } from "../api/queries";
+import {
+  useCreateTransaction,
+  useUpdateTransaction,
+  type TransactionWithCategory,
+} from "../api/queries";
 import {
   transactionKindOptions,
   transactionSchema,
   type TransactionFormValues,
 } from "../schemas/transaction-schema";
 
-function TransactionFormInner({ accounts }: { accounts: Account[] }) {
+function toFormValues(
+  accounts: Account[],
+  transaction?: TransactionWithCategory,
+): TransactionFormValues {
+  return {
+    accountId: transaction?.accountId ?? accounts[0]?.id ?? 0,
+    categoryId: transaction?.categoryId ?? undefined,
+    description: transaction?.description ?? "",
+    amount: transaction ? Number(transaction.amount) : 0,
+    kind: transaction?.kind ?? "EXPENSE",
+  };
+}
+
+function TransactionFormInner({
+  accounts,
+  transaction,
+  onSuccess,
+  onCancel,
+}: {
+  accounts: Account[];
+  transaction?: TransactionWithCategory;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
+  const isEditing = Boolean(transaction);
   const { data: categories = [] } = useCategories();
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      accountId: accounts[0]?.id,
-      description: "",
-      amount: 0,
-      kind: "EXPENSE",
-    },
+    defaultValues: toFormValues(accounts, transaction),
   });
 
-  const { mutate, isPending } = useCreateTransaction();
+  const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction();
+  const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction();
+  const isPending = isCreating || isUpdating;
+
+  useEffect(() => {
+    form.reset(toFormValues(accounts, transaction));
+  }, [accounts, transaction, form]);
 
   const onSubmit = form.handleSubmit((values) => {
-    mutate(
+    if (isEditing && transaction) {
+      updateTransaction(
+        { id: String(transaction.id), formData: values },
+        { onSuccess: () => onSuccess?.() },
+      );
+      return;
+    }
+
+    createTransaction(
       { formData: values },
       {
         onSuccess: () => {
           form.reset({ ...values, description: "", amount: 0, categoryId: undefined });
+          onSuccess?.();
         },
       },
     );
@@ -63,13 +102,7 @@ function TransactionFormInner({ accounts }: { accounts: Account[] }) {
           label="Descrição"
           placeholder="Ex.: Mercado"
         />
-        <FormFields.Input<TransactionFormValues>
-          name="amount"
-          label="Valor"
-          type="number"
-          step="0.01"
-          min={0}
-        />
+        <FormFields.Money<TransactionFormValues> name="amount" label="Valor" />
         <FormFields.Select<TransactionFormValues>
           name="kind"
           label="Tipo"
@@ -81,15 +114,34 @@ function TransactionFormInner({ accounts }: { accounts: Account[] }) {
           placeholder="Sem categoria"
           options={categoryOptions}
         />
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Salvando..." : "Adicionar transação"}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button type="submit" disabled={isPending}>
+            {isPending
+              ? "Salvando..."
+              : isEditing
+                ? "Salvar alterações"
+                : "Adicionar transação"}
+          </Button>
+          {isEditing && onCancel ? (
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancelar edição
+            </Button>
+          ) : null}
+        </div>
       </form>
     </FormProvider>
   );
 }
 
-export function TransactionForm() {
+export function TransactionForm({
+  transaction,
+  onSuccess,
+  onCancel,
+}: {
+  transaction?: TransactionWithCategory;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+} = {}) {
   const { data: accounts = [], isPending } = useAccounts();
 
   if (isPending) {
@@ -104,5 +156,12 @@ export function TransactionForm() {
     );
   }
 
-  return <TransactionFormInner accounts={accounts} />;
+  return (
+    <TransactionFormInner
+      accounts={accounts}
+      transaction={transaction}
+      onSuccess={onSuccess}
+      onCancel={onCancel}
+    />
+  );
 }

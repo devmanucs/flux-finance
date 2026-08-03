@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@flux-finance/ui/components/theme-toggle";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-6 py-16">
@@ -21,6 +23,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="absolute top-6 left-6 z-10 flex items-center gap-2 font-mono text-sm">
         <span className="inline-block size-2 rounded-full bg-foreground" />
         <span className="tracking-[0.2em] uppercase">Flux Finance</span>
+      </div>
+
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
       </div>
 
       <div className="relative z-10 w-full max-w-lg">{children}</div>
