@@ -44,7 +44,18 @@ export class AuthController {
   @Post("logout")
   @HttpCode(200)
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie(COOKIE_NAME, { path: "/" });
+    const isProduction = this.configService.get("NODE_ENV") === "production";
+
+    // clearCookie precisa dos mesmos atributos usados no `cookie()` do login
+    // (sameSite/secure): sem eles o Set-Cookie de limpeza é rejeitado pelo
+    // browser em cross-site e o cookie antigo continua valendo.
+    response.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction,
+      path: "/",
+    });
+
     return { success: true };
   }
 
