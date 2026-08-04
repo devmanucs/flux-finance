@@ -2,7 +2,11 @@ import { Suspense } from "react";
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import { Icon } from "@flux-finance/ui/components/ui/icon";
-import { AccountFormDialog, AccountList } from "@/features/accounts";
+import {
+  AccountFormDialog,
+  AccountList,
+  RelatedTransactionsSection,
+} from "@/features/accounts";
 
 export default function AccountsPage() {
   return (
@@ -20,6 +24,9 @@ export default function AccountsPage() {
       </div>
       <Suspense fallback={null}>
         <AccountList />
+      </Suspense>
+      <Suspense fallback={null}>
+        <RelatedTransactionsSection />
       </Suspense>
     </div>
   );

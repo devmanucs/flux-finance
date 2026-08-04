@@ -18,10 +18,11 @@ export type TransactionWithCategory = Prisma.TransactionGetPayload<{
   include: { category: true };
 }>;
 
-export function useTransactions() {
+export function useTransactions(month?: string) {
   return useFetch<TransactionWithCategory[]>({
-    queryKey: [TRANSACTIONS_QUERY_KEY],
+    queryKey: [TRANSACTIONS_QUERY_KEY, month ?? "all"],
     route: ROUTE,
+    config: { params: month ? { month } : undefined },
   });
 }
 

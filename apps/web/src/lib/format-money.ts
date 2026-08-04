@@ -48,9 +48,12 @@ export function parseMoney(value: string) {
 /**
  * Interpreta a entrada do usuário como centavos digitados.
  * Digitar `1234` vira `12,34`.
+ * Com `allowNegative`, um `-` no início vira valor negativo (ex.: conta
+ * bancária no vermelho); sem isso, sinal é ignorado (ex.: valor de transação).
  */
-export function moneyFromInputDigits(value: string) {
+export function moneyFromInputDigits(value: string, allowNegative = false) {
   const digits = value.replace(/\D/g, "");
   if (!digits) return 0;
-  return Number(digits) / 100;
+  const amount = Number(digits) / 100;
+  return allowNegative && value.trim().startsWith("-") ? -amount : amount;
 }

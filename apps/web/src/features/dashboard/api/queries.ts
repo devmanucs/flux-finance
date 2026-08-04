@@ -2,13 +2,15 @@ import { useFetch } from "@/lib/hooks/use-crud";
 
 export interface DashboardSummary {
   totalBalance: number;
+  totalReserved: number;
+  totalMealVoucher: number;
   totalDebt: number;
   netWorth: number;
   currentMonth: { income: number; expense: number; net: number };
 }
 
 export interface CashflowPoint {
-  month: string;
+  period: string;
   income: number;
   expense: number;
 }
@@ -27,11 +29,11 @@ export function useDashboardSummary() {
   });
 }
 
-export function useCashflow(months = 6) {
+export function useCashflow(range: string = "6") {
   return useFetch<CashflowPoint[]>({
-    queryKey: ["dashboard-cashflow", months],
+    queryKey: ["dashboard-cashflow", range],
     route: "/dashboard/cashflow",
-    config: { params: { months } },
+    config: { params: { range } },
   });
 }
 

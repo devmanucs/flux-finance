@@ -1,6 +1,7 @@
 import { TransactionKind } from "@flux-finance/database";
 import { Type } from "class-transformer";
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,6 +9,7 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  ValidateIf,
 } from "class-validator";
 
 export class CreateTransactionDto {
@@ -33,4 +35,14 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsDateString()
   date?: string;
+
+  // Vencimento pontual (ex.: boleto, aluguel). Null limpa o vencimento.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsDateString()
+  dueDate?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isPaid?: boolean;
 }

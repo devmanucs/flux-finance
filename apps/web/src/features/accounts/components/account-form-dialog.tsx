@@ -1,7 +1,6 @@
 "use client";
 
 import { FormFields } from "@/components/forms/form-fields";
-import type { Account } from "@flux-finance/database";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import {
   Dialog,
@@ -15,11 +14,11 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState, type ReactNode } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { useCreateAccount, useUpdateAccount } from "../api/queries";
-import { toDateInputValue } from "../lib/payment-status";
+import { type Account, useCreateAccount, useUpdateAccount } from "../api/queries";
 import {
   accountSchema,
   accountTypeOptions,
+  RESERVABLE_ACCOUNT_TYPES,
   type AccountFormValues,
 } from "../schemas/account-schema";
 
@@ -29,8 +28,9 @@ function toFormValues(account?: Account): AccountFormValues {
     type: account?.type ?? "CHECKING",
     balance: account ? Number(account.balance) : 0,
     currency: account?.currency ?? "BRL",
-    dueDate: toDateInputValue(account?.dueDate),
+    dueDay: account?.dueDay ?? null,
     isPaid: account?.isPaid ?? false,
+    isReserved: account?.isReserved ?? false,
   };
 }
 
@@ -63,9 +63,8 @@ export function AccountFormDialog({
   const onSubmit = form.handleSubmit((values) => {
     const payload = {
       ...values,
-      dueDate: values.dueDate
-        ? new Date(`${values.dueDate}T12:00:00`).toISOString()
-        : null,
+      dueDay:
+        values.dueDay === "" || values.dueDay == null ? null : Number(values.dueDay),
     };
 
     if (isEditing && account) {
@@ -118,13 +117,25 @@ export function AccountFormDialog({
                   ? "Fatura atual (quanto você deve)"
                   : "Saldo atual"
               }
+              allowNegative
             />
-            <FormFields.Date<AccountFormValues>
-              name="dueDate"
-              label="Vencimento"
-              placeholder="Selecionar vencimento"
+            {RESERVABLE_ACCOUNT_TYPES.includes(
+              accountType as (typeof RESERVABLE_ACCOUNT_TYPES)[number],
+            ) && (
+              <FormFields.Switch<AccountFormValues>
+                name="isReserved"
+                label="Guardado (não conta no saldo total)"
+              />
+            )}
+            <FormFields.Input<AccountFormValues>
+              name="dueDay"
+              label="Dia do vencimento"
+              type="number"
+              min={1}
+              max={31}
+              placeholder="Ex.: 22"
             />
-            <FormFields.Switch<AccountFormValues> name="isPaid" label="Já paga" />
+            <FormFields.Switch<AccountFormValues> name="isPaid" label="Fatura atual já paga" />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Salvando..." : "Salvar"}

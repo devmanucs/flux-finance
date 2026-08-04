@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, Line, XAxis } from "recharts";
+import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
+import { formatMoney } from "@/lib/format-money";
 import { Badge } from "@flux-finance/ui/components/ui/badge";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@flux-finance/ui/components/ui/card";
 import {
   ChartContainer,
   ChartTooltip,
@@ -18,10 +24,14 @@ import {
   SelectValue,
 } from "@flux-finance/ui/components/ui/select";
 import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
-import { EmptyState, ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
+import {
+  EmptyState,
+  ErrorState,
+  UnauthorizedState,
+} from "@flux-finance/ui/components/ui/status-state";
 import { ChartLineData02Icon } from "@hugeicons/core-free-icons";
-import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
-import { formatMoney } from "@/lib/format-money";
+import { useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, Line, XAxis } from "recharts";
 import { useCashflow } from "../api/queries";
 
 const chartConfig = {
@@ -30,23 +40,41 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const RANGE_OPTIONS = [
+  { value: "1w", label: "1 semana" },
+  { value: "1", label: "1 mês" },
   { value: "6", label: "6 meses" },
   { value: "12", label: "12 meses" },
-  { value: "24", label: "2 anos" },
 ];
 
-function formatMonth(month: string) {
-  const [year, monthNumber] = month.split("-");
-  const date = new Date(Number(year), Number(monthNumber) - 1, 1);
+function formatPeriod(period: string) {
+  const parts = period.split("-").map(Number);
+
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  }
+
+  const [year, month] = parts;
+  const date = new Date(year, month - 1, 1);
   return date.toLocaleDateString("pt-BR", { month: "short" });
 }
 
 export function CashflowChart() {
-  const [months, setMonths] = useState("6");
-  const { data = [], isPending, isError, error, refetch } = useCashflow(Number(months));
+  const [range, setRange] = useState("6");
+  const {
+    data = [],
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useCashflow(range);
 
   const { total, trendPct } = useMemo(() => {
-    const totalNet = data.reduce((sum, point) => sum + (point.income - point.expense), 0);
+    const totalNet = data.reduce(
+      (sum, point) => sum + (point.income - point.expense),
+      0,
+    );
 
     if (data.length < 2) {
       return { total: totalNet, trendPct: null as number | null };
@@ -57,7 +85,8 @@ export function CashflowChart() {
     const lastNet = last.income - last.expense;
     const prevNet = prev.income - prev.expense;
 
-    const pct = prevNet !== 0 ? ((lastNet - prevNet) / Math.abs(prevNet)) * 100 : null;
+    const pct =
+      prevNet !== 0 ? ((lastNet - prevNet) / Math.abs(prevNet)) * 100 : null;
     return { total: totalNet, trendPct: pct };
   }, [data]);
 
@@ -69,7 +98,9 @@ export function CashflowChart() {
             Fluxo de caixa (entradas x saídas)
           </CardTitle>
           <div className="flex items-center gap-2">
-            <span className="font-heading text-2xl font-semibold">{formatMoney(total)}</span>
+            <span className="font-heading text-2xl font-semibold">
+              {formatMoney(total)}
+            </span>
             {trendPct !== null && (
               <Badge variant={trendPct >= 0 ? "default" : "destructive"}>
                 {trendPct >= 0 ? "+" : ""}
@@ -81,10 +112,10 @@ export function CashflowChart() {
         <CardAction>
           <Select
             items={RANGE_OPTIONS}
-            value={months}
-            onValueChange={(value) => value && setMonths(value)}
+            value={range}
+            onValueChange={(value) => value && setRange(value)}
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[120px] p-5">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -125,12 +156,25 @@ export function CashflowChart() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="fillIncome" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-income)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--color-income)" stopOpacity={0.05} />
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-income)"
+                    stopOpacity={0.4}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-income)"
+                    stopOpacity={0.05}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="period"
+                tickFormatter={formatPeriod}
+                tickLine={false}
+                axisLine={false}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area
                 type="monotone"

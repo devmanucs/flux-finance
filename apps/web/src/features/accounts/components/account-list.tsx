@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BankIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
-import type { Account } from "@flux-finance/database";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
 import { Icon } from "@flux-finance/ui/components/ui/icon";
@@ -17,12 +16,8 @@ import {
 import { EmptyState, ErrorState, UnauthorizedState } from "@flux-finance/ui/components/ui/status-state";
 import { getErrorStatus, isPermissionError } from "@/lib/api/get-error-status";
 import { formatMoney } from "@/lib/format-money";
-import { useAccounts } from "../api/queries";
-import {
-  getAccountPaymentStatus,
-  isAccountPaymentStatus,
-  PAYMENT_STATUS_META,
-} from "../lib/payment-status";
+import { getPaymentStatus, isPaymentStatus, PAYMENT_STATUS_META } from "@/lib/payment-status";
+import { type Account, useAccounts } from "../api/queries";
 import { accountTypeOptions, DEBT_ACCOUNT_TYPES } from "../schemas/account-schema";
 import { AccountFormDialog } from "./account-form-dialog";
 import { DeleteAccountButton } from "./delete-account-button";
@@ -61,7 +56,7 @@ function AccountCardSkeleton() {
 }
 
 function PaymentStatusDot({ account }: { account: Account }) {
-  const status = getAccountPaymentStatus(account);
+  const status = getPaymentStatus(account);
   if (!status) return null;
   const meta = PAYMENT_STATUS_META[status];
 
@@ -86,12 +81,12 @@ function PaymentStatusDot({ account }: { account: Account }) {
 export function AccountList() {
   const searchParams = useSearchParams();
   const statusParam = searchParams.get("status");
-  const statusFilter = isAccountPaymentStatus(statusParam) ? statusParam : null;
+  const statusFilter = isPaymentStatus(statusParam) ? statusParam : null;
 
   const { data: accounts = [], isPending, isError, error, refetch } = useAccounts();
 
   const filteredAccounts = statusFilter
-    ? accounts.filter((account) => getAccountPaymentStatus(account) === statusFilter)
+    ? accounts.filter((account) => getPaymentStatus(account) === statusFilter)
     : accounts;
 
   if (isPending) {
@@ -136,7 +131,7 @@ export function AccountList() {
         title={`Nenhuma conta ${meta.shortLabel.toLowerCase()}`}
         description="Nada por aqui com esse status. Ajuste o vencimento ou marque como paga na edição da conta."
         action={
-          <Button size="sm" variant="outline" render={<Link href="/accounts" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/accounts" />}>
             Ver todas
           </Button>
         }
@@ -155,7 +150,7 @@ export function AccountList() {
               />
               Filtrando: {PAYMENT_STATUS_META[statusFilter].label}
             </p>
-            <Button size="sm" variant="ghost" render={<Link href="/accounts" />}>
+            <Button size="sm" variant="ghost" nativeButton={false} render={<Link href="/accounts" />}>
               Limpar filtro
             </Button>
           </div>
@@ -180,17 +175,20 @@ export function AccountList() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-xs text-muted-foreground">
-                    {isDebt ? "Você deve" : "Saldo atual"}
+                    {isDebt ? "Você deve" : account.isReserved ? "Guardado" : "Saldo atual"}
                   </p>
                   <p
                     className={
-                      isDebt
+                      isDebt || amount < 0
                         ? "font-heading text-xl font-semibold text-destructive"
                         : "font-heading text-xl font-semibold"
                     }
                   >
                     {formatMoney(amount)}
                   </p>
+                  {account.isReserved ? (
+                    <p className="mt-1 text-xs text-muted-foreground">Fora do saldo total</p>
+                  ) : null}
                   {dueLabel ? (
                     <p className="mt-1 text-xs text-muted-foreground">Vence em {dueLabel}</p>
                   ) : null}

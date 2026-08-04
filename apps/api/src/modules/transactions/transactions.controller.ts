@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import { CurrentUser, type AuthenticatedUser } from "../../common/decorators/current-user.decorator";
 import { TransactionsService } from "./transactions.service";
@@ -18,8 +19,8 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.transactionsService.findAll(user.id);
+  findAll(@CurrentUser() user: AuthenticatedUser, @Query("month") month?: string) {
+    return this.transactionsService.findAll(user.id, month);
   }
 
   @Get(":id")

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Account } from "@flux-finance/database";
+import type { Account } from "@/features/accounts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -19,6 +19,16 @@ import {
   type TransactionFormValues,
 } from "../schemas/transaction-schema";
 
+function toDateInputValue(value: Date | string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function toFormValues(
   accounts: Account[],
   transaction?: TransactionWithCategory,
@@ -29,6 +39,9 @@ function toFormValues(
     description: transaction?.description ?? "",
     amount: transaction ? Number(transaction.amount) : 0,
     kind: transaction?.kind ?? "EXPENSE",
+    date: toDateInputValue(transaction?.date) || toDateInputValue(new Date()),
+    dueDate: toDateInputValue(transaction?.dueDate),
+    isPaid: transaction?.isPaid ?? false,
   };
 }
 
@@ -60,19 +73,32 @@ function TransactionFormInner({
   }, [accounts, transaction, form]);
 
   const onSubmit = form.handleSubmit((values) => {
+    const payload = {
+      ...values,
+      date: new Date(`${values.date}T12:00:00`).toISOString(),
+      dueDate: values.dueDate ? new Date(`${values.dueDate}T12:00:00`).toISOString() : null,
+    };
+
     if (isEditing && transaction) {
       updateTransaction(
-        { id: String(transaction.id), formData: values },
+        { id: String(transaction.id), formData: payload },
         { onSuccess: () => onSuccess?.() },
       );
       return;
     }
 
     createTransaction(
-      { formData: values },
+      { formData: payload },
       {
         onSuccess: () => {
-          form.reset({ ...values, description: "", amount: 0, categoryId: undefined });
+          form.reset({
+            ...values,
+            description: "",
+            amount: 0,
+            categoryId: undefined,
+            dueDate: "",
+            isPaid: false,
+          });
           onSuccess?.();
         },
       },
@@ -111,9 +137,24 @@ function TransactionFormInner({
         <FormFields.Select<TransactionFormValues>
           name="categoryId"
           label="Categoria (opcional)"
-          placeholder="Sem categoria"
+          placeholder={
+            categoryOptions.length === 0
+              ? `Nenhuma categoria de ${kind === "INCOME" ? "receita" : "despesa"} cadastrada`
+              : "Sem categoria"
+          }
           options={categoryOptions}
         />
+        <FormFields.Date<TransactionFormValues>
+          name="date"
+          label="Data"
+          placeholder="Selecionar data"
+        />
+        <FormFields.Date<TransactionFormValues>
+          name="dueDate"
+          label="Vencimento (opcional)"
+          placeholder="Selecionar vencimento"
+        />
+        <FormFields.Switch<TransactionFormValues> name="isPaid" label="Já paga" />
         <div className="flex flex-col gap-2">
           <Button type="submit" disabled={isPending}>
             {isPending

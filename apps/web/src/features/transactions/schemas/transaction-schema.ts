@@ -16,6 +16,9 @@ export const transactionSchema = z.object({
   description: z.string().min(1, "Descrição obrigatória"),
   amount: z.coerce.number().positive("Valor deve ser maior que zero"),
   kind: z.enum(["INCOME", "EXPENSE"]),
+  date: z.string().min(1, "Data obrigatória"),
+  dueDate: z.string().optional().nullable(),
+  isPaid: z.boolean().default(false),
 });
 
 export type TransactionFormValues = z.infer<typeof transactionSchema>;

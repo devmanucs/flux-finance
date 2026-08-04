@@ -1,6 +1,5 @@
 "use client";
 
-import type { Account } from "@flux-finance/database";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import {
@@ -15,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@flux-finance/ui/components/ui/alert-dialog";
 import { Icon } from "@flux-finance/ui/components/ui/icon";
-import { useDeleteAccount } from "../api/queries";
+import { type Account, useDeleteAccount } from "../api/queries";
 
 export function DeleteAccountButton({ account }: { account: Account }) {
   const { mutate, isPending } = useDeleteAccount();

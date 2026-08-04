@@ -12,9 +12,8 @@ export class DashboardController {
   }
 
   @Get("cashflow")
-  cashflow(@CurrentUser() user: AuthenticatedUser, @Query("months") months?: string) {
-    const parsed = months ? Number(months) : 6;
-    return this.dashboardService.cashflow(user.id, Number.isFinite(parsed) ? parsed : 6);
+  cashflow(@CurrentUser() user: AuthenticatedUser, @Query("range") range?: string) {
+    return this.dashboardService.cashflow(user.id, range ?? "6");
   }
 
   @Get("by-category")

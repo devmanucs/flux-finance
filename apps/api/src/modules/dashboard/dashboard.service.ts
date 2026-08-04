@@ -3,6 +3,9 @@ import { Prisma } from "@flux-finance/database";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const DEBT_TYPES = ["CREDIT_CARD"];
+// Saldo de uso restrito (só compra comida/refeição): fica de fora do saldo
+// gastável, com bucket próprio — mas soma no patrimônio líquido.
+const MEAL_VOUCHER_TYPES = ["MEAL_VOUCHER"];
 
 @Injectable()
 export class DashboardService {
@@ -11,15 +14,21 @@ export class DashboardService {
   async summary(userId: number) {
     const accounts = await this.prisma.client.account.findMany({
       where: { userId },
-      select: { type: true, balance: true },
+      select: { type: true, balance: true, isReserved: true },
     });
 
     let totalBalance = new Prisma.Decimal(0);
+    let totalReserved = new Prisma.Decimal(0);
+    let totalMealVoucher = new Prisma.Decimal(0);
     let totalDebt = new Prisma.Decimal(0);
 
     for (const account of accounts) {
       if (DEBT_TYPES.includes(account.type)) {
         totalDebt = totalDebt.add(account.balance);
+      } else if (MEAL_VOUCHER_TYPES.includes(account.type)) {
+        totalMealVoucher = totalMealVoucher.add(account.balance);
+      } else if (account.isReserved) {
+        totalReserved = totalReserved.add(account.balance);
       } else {
         totalBalance = totalBalance.add(account.balance);
       }
@@ -34,6 +43,7 @@ export class DashboardService {
       where: {
         account: { userId },
         date: { gte: startOfMonth, lt: startOfNextMonth },
+        isPaid: true,
       },
       _sum: { amount: true },
     });
@@ -43,8 +53,10 @@ export class DashboardService {
 
     return {
       totalBalance: totalBalance.toNumber(),
+      totalReserved: totalReserved.toNumber(),
+      totalMealVoucher: totalMealVoucher.toNumber(),
       totalDebt: totalDebt.toNumber(),
-      netWorth: totalBalance.sub(totalDebt).toNumber(),
+      netWorth: totalBalance.add(totalReserved).add(totalMealVoucher).sub(totalDebt).toNumber(),
       currentMonth: {
         income: new Prisma.Decimal(monthIncome).toNumber(),
         expense: new Prisma.Decimal(monthExpense).toNumber(),
@@ -53,9 +65,36 @@ export class DashboardService {
     };
   }
 
-  async cashflow(userId: number, months: number) {
+  async cashflow(userId: number, range: string) {
+    if (range === "1w") {
+      const since = new Date();
+      since.setDate(since.getDate() - 6);
+      since.setHours(0, 0, 0, 0);
+
+      const rows = await this.prisma.client.$queryRaw<
+        { day: Date; income: Prisma.Decimal; expense: Prisma.Decimal }[]
+      >`
+        SELECT
+          date_trunc('day', t.date) AS day,
+          COALESCE(SUM(CASE WHEN t.kind = 'INCOME' THEN t.amount ELSE 0 END), 0) AS income,
+          COALESCE(SUM(CASE WHEN t.kind = 'EXPENSE' THEN t.amount ELSE 0 END), 0) AS expense
+        FROM transactions t
+        JOIN accounts a ON a.id = t.account_id
+        WHERE a.user_id = ${userId} AND t.date >= ${since} AND t.is_paid = true
+        GROUP BY day
+        ORDER BY day ASC
+      `;
+
+      return rows.map((row) => ({
+        period: row.day.toISOString().slice(0, 10),
+        income: new Prisma.Decimal(row.income).toNumber(),
+        expense: new Prisma.Decimal(row.expense).toNumber(),
+      }));
+    }
+
+    const months = Number(range);
     const since = new Date();
-    since.setMonth(since.getMonth() - (months - 1));
+    since.setMonth(since.getMonth() - ((Number.isFinite(months) ? months : 6) - 1));
     since.setDate(1);
     since.setHours(0, 0, 0, 0);
 
@@ -68,13 +107,13 @@ export class DashboardService {
         COALESCE(SUM(CASE WHEN t.kind = 'EXPENSE' THEN t.amount ELSE 0 END), 0) AS expense
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
-      WHERE a.user_id = ${userId} AND t.date >= ${since}
+      WHERE a.user_id = ${userId} AND t.date >= ${since} AND t.is_paid = true
       GROUP BY month
       ORDER BY month ASC
     `;
 
     return rows.map((row) => ({
-      month: row.month.toISOString().slice(0, 7),
+      period: row.month.toISOString().slice(0, 7),
       income: new Prisma.Decimal(row.income).toNumber(),
       expense: new Prisma.Decimal(row.expense).toNumber(),
     }));
@@ -91,6 +130,7 @@ export class DashboardService {
         account: { userId },
         kind: "EXPENSE",
         date: { gte: startOfMonth, lt: startOfNextMonth },
+        isPaid: true,
       },
       _sum: { amount: true },
     });

@@ -10,7 +10,7 @@ export default function NotFound() {
       <NotFoundState
         className="max-w-md"
         action={
-          <Button render={<Link href="/" />}>
+          <Button nativeButton={false} render={<Link href="/" />}>
             <Icon icon={Home01Icon} />
             Voltar para o início
           </Button>

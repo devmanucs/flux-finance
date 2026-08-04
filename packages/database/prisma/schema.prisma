@@ -18,6 +18,7 @@ enum AccountType {
   CREDIT_CARD
   INVESTMENT
   CASH
+  MEAL_VOUCHER
 }
 
 // IDs como Int/autoincrement (não BigInt): evita o gotcha de serialização
@@ -45,15 +46,22 @@ model Account {
   type         AccountType   @default(CHECKING)
   balance      Decimal       @default(0) @db.Decimal(12, 2)
   currency     String        @default("BRL")
-  // Vencimento da fatura/conta; null = sem acompanhamento de status.
-  dueDate      DateTime?     @db.Timestamptz() @map("due_date")
-  isPaid       Boolean       @default(false) @map("is_paid")
+  // Dia do mês (1-31) em que a fatura/conta vence; null = sem
+  // acompanhamento de status. Recorrente: não precisa recadastrar todo mês.
+  dueDay       Int?          @map("due_day")
+  // Quando a fatura do ciclo atual foi marcada como paga; comparado ao
+  // início do ciclo (derivado de dueDay) para saber se ainda vale pro ciclo
+  // atual ou se é de um ciclo anterior (ver accounts.service.ts).
+  paidAt       DateTime?     @db.Timestamptz() @map("paid_at")
+  // Dinheiro "guardado" (poupança/investimento reservado): soma no
+  // patrimônio líquido mas fica de fora do saldo total (gasto disponível).
+  isReserved   Boolean       @default(false) @map("is_reserved")
   createdAt    DateTime      @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt    DateTime      @updatedAt @db.Timestamptz() @map("updated_at")
   transactions Transaction[]
 
   @@index([userId])
-  @@index([userId, dueDate, isPaid])
+  @@index([userId, dueDay, paidAt])
   @@map("accounts")
 }
 
@@ -78,11 +86,17 @@ model Transaction {
   amount      Decimal         @db.Decimal(12, 2)
   kind        TransactionKind @default(EXPENSE)
   date        DateTime        @default(now()) @db.Timestamptz()
+  // Vencimento pontual da transação (ex.: boleto, aluguel); null = sem
+  // acompanhamento de status. Diferente do dueDay da conta (recorrente por
+  // ciclo) — aqui é uma data fixa, já que cada lançamento é uma ocorrência.
+  dueDate     DateTime?       @db.Timestamptz() @map("due_date")
+  isPaid      Boolean         @default(false) @map("is_paid")
   createdAt   DateTime        @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt   DateTime        @updatedAt @db.Timestamptz() @map("updated_at")
 
   @@index([accountId])
   @@index([categoryId])
+  @@index([accountId, dueDate, isPaid])
   @@map("transactions")
 }
 

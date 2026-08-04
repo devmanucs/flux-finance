@@ -714,12 +714,14 @@ const FieldFormMoney = <T extends FieldValues = FieldValues>({
   fieldClassName,
   placeholder = "R$ 0,00",
   showError = true,
+  allowNegative = false,
 }: {
   name: Path<T>;
   label?: string;
   fieldClassName?: string;
   placeholder?: string;
   showError?: boolean;
+  allowNegative?: boolean;
 }) => {
   const form = useFormContext<T>();
 
@@ -732,12 +734,12 @@ const FieldFormMoney = <T extends FieldValues = FieldValues>({
           {label && <FieldLabel htmlFor={name}>{label}</FieldLabel>}
           <Input
             id={name}
-            inputMode="numeric"
+            inputMode={allowNegative ? "text" : "numeric"}
             autoComplete="off"
             placeholder={placeholder}
             aria-invalid={fieldState.invalid}
             value={formatMoney(typeof field.value === "number" ? field.value : Number(field.value) || 0)}
-            onChange={(event) => field.onChange(moneyFromInputDigits(event.target.value))}
+            onChange={(event) => field.onChange(moneyFromInputDigits(event.target.value, allowNegative))}
             onBlur={field.onBlur}
             name={field.name}
             ref={field.ref}

@@ -1,9 +1,9 @@
-export type AccountPaymentStatus = "paid" | "due_soon" | "overdue";
+export type PaymentStatus = "paid" | "due_soon" | "overdue";
 
 export const DUE_SOON_DAYS = 7;
 
 export const PAYMENT_STATUS_META: Record<
-  AccountPaymentStatus,
+  PaymentStatus,
   { label: string; shortLabel: string; dotClassName: string; badgeClassName: string }
 > = {
   overdue: {
@@ -30,14 +30,14 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function getAccountPaymentStatus(account: {
+export function getPaymentStatus(item: {
   dueDate: Date | string | null;
   isPaid: boolean;
-}): AccountPaymentStatus | null {
-  if (account.isPaid) return "paid";
-  if (!account.dueDate) return null;
+}): PaymentStatus | null {
+  if (item.isPaid) return "paid";
+  if (!item.dueDate) return null;
 
-  const due = startOfDay(new Date(account.dueDate));
+  const due = startOfDay(new Date(item.dueDate));
   const today = startOfDay(new Date());
 
   if (due < today) return "overdue";
@@ -50,29 +50,17 @@ export function getAccountPaymentStatus(account: {
   return null;
 }
 
-export function isAccountPaymentStatus(value: string | null | undefined): value is AccountPaymentStatus {
+export function isPaymentStatus(value: string | null | undefined): value is PaymentStatus {
   return value === "paid" || value === "due_soon" || value === "overdue";
 }
 
-export function getAccountsStatusCounts(
-  accounts: Array<{ dueDate: Date | string | null; isPaid: boolean }>,
-) {
-  return accounts.reduce(
-    (counts, account) => {
-      const status = getAccountPaymentStatus(account);
+export function getStatusCounts(items: Array<{ dueDate: Date | string | null; isPaid: boolean }>) {
+  return items.reduce(
+    (counts, item) => {
+      const status = getPaymentStatus(item);
       if (status) counts[status] += 1;
       return counts;
     },
-    { paid: 0, due_soon: 0, overdue: 0 } satisfies Record<AccountPaymentStatus, number>,
+    { paid: 0, due_soon: 0, overdue: 0 } satisfies Record<PaymentStatus, number>,
   );
-}
-
-export function toDateInputValue(value: Date | string | null | undefined) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }

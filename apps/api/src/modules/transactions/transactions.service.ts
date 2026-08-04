@@ -8,9 +8,18 @@ import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(userId: number) {
+  findAll(userId: number, month?: string) {
+    let dateFilter: Prisma.DateTimeFilter | undefined;
+
+    if (month) {
+      const reference = new Date(`${month}-01T00:00:00Z`);
+      const startOfMonth = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1));
+      const startOfNextMonth = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1));
+      dateFilter = { gte: startOfMonth, lt: startOfNextMonth };
+    }
+
     return this.prisma.client.transaction.findMany({
-      where: { account: { userId } },
+      where: { account: { userId }, ...(dateFilter ? { date: dateFilter } : {}) },
       include: { category: true },
       orderBy: { date: "desc" },
     });
@@ -56,9 +65,21 @@ export class TransactionsService {
     return accountType === "CREDIT_CARD" ? base.negated() : base;
   }
 
+  // Uma transação só mexe no saldo da conta se estiver marcada como paga —
+  // uma pendência (aluguel ainda não pago, por exemplo) fica só registrada,
+  // sem afetar o saldo, até você marcar como paga.
+  private appliedDelta(
+    accountType: AccountType,
+    kind: TransactionKind,
+    amount: Prisma.Decimal | number,
+    isPaid: boolean,
+  ): Prisma.Decimal {
+    return isPaid ? this.computeBalanceDelta(accountType, kind, amount) : new Prisma.Decimal(0);
+  }
+
   async create(dto: CreateTransactionDto, userId: number) {
     const account = await this.getOwnedAccount(dto.accountId, userId);
-    const delta = this.computeBalanceDelta(account.type, dto.kind, dto.amount);
+    const delta = this.appliedDelta(account.type, dto.kind, dto.amount, dto.isPaid ?? false);
 
     const [, transaction] = await this.prisma.client.$transaction([
       this.prisma.client.account.update({
@@ -69,6 +90,7 @@ export class TransactionsService {
         data: {
           ...dto,
           date: dto.date ? new Date(dto.date) : undefined,
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         },
       }),
     ]);
@@ -85,15 +107,17 @@ export class TransactionsService {
         ? await this.getOwnedAccount(dto.accountId, userId)
         : oldAccount;
 
-    const reverseDelta = this.computeBalanceDelta(
+    const reverseDelta = this.appliedDelta(
       oldAccount.type,
       existing.kind,
       existing.amount,
+      existing.isPaid,
     ).negated();
-    const newDelta = this.computeBalanceDelta(
+    const newDelta = this.appliedDelta(
       newAccount.type,
       dto.kind ?? existing.kind,
       dto.amount ?? existing.amount,
+      dto.isPaid ?? existing.isPaid,
     );
 
     const ops = [
@@ -110,6 +134,7 @@ export class TransactionsService {
         data: {
           ...dto,
           date: dto.date ? new Date(dto.date) : undefined,
+          dueDate: dto.dueDate === undefined ? undefined : dto.dueDate ? new Date(dto.dueDate) : null,
         },
       }),
     ];
@@ -120,10 +145,11 @@ export class TransactionsService {
 
   async remove(id: number, userId: number) {
     const existing = await this.findOne(id, userId);
-    const reverseDelta = this.computeBalanceDelta(
+    const reverseDelta = this.appliedDelta(
       existing.account.type,
       existing.kind,
       existing.amount,
+      existing.isPaid,
     ).negated();
 
     await this.prisma.client.$transaction([

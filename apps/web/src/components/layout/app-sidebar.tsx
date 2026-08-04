@@ -31,20 +31,17 @@ import {
 import { Icon } from "@flux-finance/ui/components/ui/icon";
 import { useCurrentUser, useLogout } from "@/features/auth";
 import { useAccounts } from "@/features/accounts";
-import {
-  getAccountsStatusCounts,
-  PAYMENT_STATUS_META,
-  type AccountPaymentStatus,
-} from "@/features/accounts/lib/payment-status";
+import { useTransactions } from "@/features/transactions";
+import { getStatusCounts, PAYMENT_STATUS_META, type PaymentStatus } from "@/lib/payment-status";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: DashboardSquare01Icon },
   { href: "/transactions", label: "Transações", icon: MoneyExchange01Icon },
-  { href: "/accounts", label: "Contas", icon: BankIcon },
+  { href: "/accounts", label: "Contas Bancárias", icon: BankIcon },
   { href: "/categories", label: "Categorias", icon: Tag01Icon },
 ];
 
-const STATUS_ITEMS: AccountPaymentStatus[] = ["overdue", "due_soon", "paid"];
+const STATUS_ITEMS: PaymentStatus[] = ["overdue", "due_soon", "paid"];
 
 function formatCount(count: number) {
   return String(count).padStart(2, "0");
@@ -66,7 +63,8 @@ export function AppSidebar() {
   const { data: user } = useCurrentUser();
   const { mutate: logout } = useLogout();
   const { data: accounts = [] } = useAccounts();
-  const statusCounts = getAccountsStatusCounts(accounts);
+  const { data: transactions = [] } = useTransactions();
+  const statusCounts = getStatusCounts([...accounts, ...transactions]);
   const activeStatus = searchParams.get("status");
 
   return (
