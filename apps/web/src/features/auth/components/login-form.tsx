@@ -22,7 +22,6 @@ export function LoginForm() {
     mutate(values, {
       onSuccess: () => {
         router.push("/");
-        router.refresh();
       },
       onError: () => {
         form.setError("password", { message: "E-mail ou senha inválidos" });
