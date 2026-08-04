@@ -1,8 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountType, Prisma, TransactionKind } from "@flux-finance/database";
 import { PrismaService } from "../../prisma/prisma.service";
+import { CreateRecurringTransactionDto } from "./dto/create-recurring-transaction.dto";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
+import { addMonths } from "./lib/recurrence";
 
 @Injectable()
 export class TransactionsService {
@@ -96,6 +98,44 @@ export class TransactionsService {
     ]);
 
     return transaction;
+  }
+
+  // Gera N lançamentos de uma vez (aluguel, água...), um por ciclo, em vez
+  // de exigir relançar manualmente todo mês. Cada ocorrência nasce como uma
+  // transação independente e comum — editável/exclu­ível isoladamente.
+  async createRecurring(dto: CreateRecurringTransactionDto, userId: number) {
+    const { repeatEveryMonths, occurrences, ...base } = dto;
+    const account = await this.getOwnedAccount(base.accountId, userId);
+    const baseDate = base.date ? new Date(base.date) : new Date();
+    const baseDueDate = base.dueDate ? new Date(base.dueDate) : null;
+    const isPaid = base.isPaid ?? false;
+    const delta = this.appliedDelta(account.type, base.kind, base.amount, isPaid);
+
+    const ops = [];
+    for (let i = 0; i < occurrences; i++) {
+      const offset = i * repeatEveryMonths;
+      ops.push(
+        this.prisma.client.account.update({
+          where: { id: account.id },
+          data: { balance: { increment: delta } },
+        }),
+        this.prisma.client.transaction.create({
+          data: {
+            accountId: base.accountId,
+            categoryId: base.categoryId,
+            description: base.description,
+            amount: base.amount,
+            kind: base.kind,
+            date: addMonths(baseDate, offset),
+            dueDate: baseDueDate ? addMonths(baseDueDate, offset) : null,
+            isPaid,
+          },
+        }),
+      );
+    }
+
+    const results = await this.prisma.client.$transaction(ops);
+    return results.filter((_, index) => index % 2 === 1);
   }
 
   async update(id: number, dto: UpdateTransactionDto, userId: number) {

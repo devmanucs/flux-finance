@@ -26,16 +26,36 @@ export function useTransactions(month?: string) {
   });
 }
 
+// `isRecurring` só existe pra decidir no client qual mutation chamar — a API
+// não conhece esse campo (nem o normal, nem o de recorrência).
+export type TransactionPayload = Omit<
+  TransactionFormValues,
+  "isRecurring" | "repeatEveryMonths" | "occurrences"
+>;
+
 export function useCreateTransaction() {
-  return useCreate<Transaction, TransactionFormValues>({
+  return useCreate<Transaction, TransactionPayload>({
     route: ROUTE,
     mutationKey: ["criar-transacao"],
     queryInvalidationKeys: INVALIDATION_KEYS,
   });
 }
 
+export interface RecurringTransactionFormValues extends TransactionPayload {
+  repeatEveryMonths: number;
+  occurrences: number;
+}
+
+export function useCreateRecurringTransaction() {
+  return useCreate<Transaction[], RecurringTransactionFormValues>({
+    route: `${ROUTE}/recurring`,
+    mutationKey: ["criar-transacao-recorrente"],
+    queryInvalidationKeys: INVALIDATION_KEYS,
+  });
+}
+
 export function useUpdateTransaction() {
-  return useUpdate<Transaction, Partial<TransactionFormValues>>({
+  return useUpdate<Transaction, Partial<TransactionPayload>>({
     route: ROUTE,
     mutationKey: ["atualizar-transacao"],
     queryInvalidationKeys: INVALIDATION_KEYS,

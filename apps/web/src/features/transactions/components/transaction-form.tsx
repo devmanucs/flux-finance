@@ -9,6 +9,7 @@ import { FormFields } from "@/components/forms/form-fields";
 import { useAccounts } from "@/features/accounts";
 import { useCategories } from "@/features/categories";
 import {
+  useCreateRecurringTransaction,
   useCreateTransaction,
   useUpdateTransaction,
   type TransactionWithCategory,
@@ -42,6 +43,9 @@ function toFormValues(
     date: toDateInputValue(transaction?.date) || toDateInputValue(new Date()),
     dueDate: toDateInputValue(transaction?.dueDate),
     isPaid: transaction?.isPaid ?? false,
+    isRecurring: false,
+    repeatEveryMonths: 1,
+    occurrences: 12,
   };
 }
 
@@ -65,44 +69,53 @@ function TransactionFormInner({
   });
 
   const { mutate: createTransaction, isPending: isCreating } = useCreateTransaction();
+  const { mutate: createRecurringTransaction, isPending: isCreatingRecurring } =
+    useCreateRecurringTransaction();
   const { mutate: updateTransaction, isPending: isUpdating } = useUpdateTransaction();
-  const isPending = isCreating || isUpdating;
+  const isPending = isCreating || isCreatingRecurring || isUpdating;
 
   useEffect(() => {
     form.reset(toFormValues(accounts, transaction));
   }, [accounts, transaction, form]);
 
   const onSubmit = form.handleSubmit((values) => {
-    const payload = {
-      ...values,
+    const { isRecurring, repeatEveryMonths, occurrences, ...rest } = values;
+    const basePayload = {
+      ...rest,
       date: new Date(`${values.date}T12:00:00`).toISOString(),
       dueDate: values.dueDate ? new Date(`${values.dueDate}T12:00:00`).toISOString() : null,
     };
 
     if (isEditing && transaction) {
       updateTransaction(
-        { id: String(transaction.id), formData: payload },
+        { id: String(transaction.id), formData: basePayload },
         { onSuccess: () => onSuccess?.() },
       );
       return;
     }
 
-    createTransaction(
-      { formData: payload },
-      {
-        onSuccess: () => {
-          form.reset({
-            ...values,
-            description: "",
-            amount: 0,
-            categoryId: undefined,
-            dueDate: "",
-            isPaid: false,
-          });
-          onSuccess?.();
-        },
-      },
-    );
+    const onCreateSuccess = () => {
+      form.reset({
+        ...values,
+        description: "",
+        amount: 0,
+        categoryId: undefined,
+        dueDate: "",
+        isPaid: false,
+        isRecurring: false,
+      });
+      onSuccess?.();
+    };
+
+    if (isRecurring) {
+      createRecurringTransaction(
+        { formData: { ...basePayload, repeatEveryMonths, occurrences } },
+        { onSuccess: onCreateSuccess },
+      );
+      return;
+    }
+
+    createTransaction({ formData: basePayload }, { onSuccess: onCreateSuccess });
   });
 
   const accountOptions = accounts.map((account) => ({
@@ -111,6 +124,7 @@ function TransactionFormInner({
   }));
 
   const kind = form.watch("kind");
+  const isRecurring = form.watch("isRecurring");
   const categoryOptions = categories
     .filter((category) => category.kind === kind)
     .map((category) => ({ value: String(category.id), label: category.name }));
@@ -155,13 +169,41 @@ function TransactionFormInner({
           placeholder="Selecionar vencimento"
         />
         <FormFields.Switch<TransactionFormValues> name="isPaid" label="Já paga" />
+        {!isEditing ? (
+          <>
+            <FormFields.Switch<TransactionFormValues>
+              name="isRecurring"
+              label="Repetir (aluguel, água...)"
+            />
+            {isRecurring ? (
+              <div className="grid grid-cols-2 gap-4">
+                <FormFields.Input<TransactionFormValues>
+                  name="repeatEveryMonths"
+                  label="A cada quantos meses"
+                  type="number"
+                  min={1}
+                  max={24}
+                />
+                <FormFields.Input<TransactionFormValues>
+                  name="occurrences"
+                  label="Quantidade de repetições"
+                  type="number"
+                  min={2}
+                  max={60}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
         <div className="flex flex-col gap-2">
           <Button type="submit" disabled={isPending}>
             {isPending
               ? "Salvando..."
               : isEditing
                 ? "Salvar alterações"
-                : "Adicionar transação"}
+                : isRecurring
+                  ? "Adicionar transações"
+                  : "Adicionar transação"}
           </Button>
           {isEditing && onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>

@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { CurrentUser, type AuthenticatedUser } from "../../common/decorators/current-user.decorator";
 import { TransactionsService } from "./transactions.service";
+import { CreateRecurringTransactionDto } from "./dto/create-recurring-transaction.dto";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 
@@ -31,6 +32,14 @@ export class TransactionsController {
   @Post()
   create(@Body() dto: CreateTransactionDto, @CurrentUser() user: AuthenticatedUser) {
     return this.transactionsService.create(dto, user.id);
+  }
+
+  @Post("recurring")
+  createRecurring(
+    @Body() dto: CreateRecurringTransactionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.transactionsService.createRecurring(dto, user.id);
   }
 
   @Patch(":id")
