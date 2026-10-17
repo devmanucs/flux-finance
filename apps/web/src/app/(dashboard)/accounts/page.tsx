@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import { Icon } from "@flux-finance/ui/components/ui/icon";
+import { PluggyConnectionsPanel } from "@/features/pluggy/components/pluggy-connections-panel";
 import {
   AccountFormDialog,
   AccountList,
@@ -22,6 +23,7 @@ export default function AccountsPage() {
           }
         />
       </div>
+      <PluggyConnectionsPanel />
       <Suspense fallback={null}>
         <AccountList />
       </Suspense>

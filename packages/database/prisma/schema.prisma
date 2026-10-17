@@ -34,6 +34,7 @@ model User {
   createdAt    DateTime @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt    DateTime @updatedAt @db.Timestamptz() @map("updated_at")
   accounts     Account[]
+  pluggyConnections PluggyConnection[]
 
   @@map("users")
 }
@@ -56,13 +57,33 @@ model Account {
   // Dinheiro "guardado" (poupança/investimento reservado): soma no
   // patrimônio líquido mas fica de fora do saldo total (gasto disponível).
   isReserved   Boolean       @default(false) @map("is_reserved")
+  pluggyAccountId String?    @unique @map("pluggy_account_id")
+  pluggyConnectionId Int?    @map("pluggy_connection_id")
+  pluggyConnection PluggyConnection? @relation(fields: [pluggyConnectionId], references: [id], onDelete: SetNull)
   createdAt    DateTime      @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt    DateTime      @updatedAt @db.Timestamptz() @map("updated_at")
   transactions Transaction[]
 
   @@index([userId])
   @@index([userId, dueDay, paidAt])
+  @@index([pluggyConnectionId])
   @@map("accounts")
+}
+
+model PluggyConnection {
+  id               Int           @id @default(autoincrement())
+  userId           Int           @map("user_id")
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId           String        @unique @map("item_id")
+  institutionName  String        @map("institution_name")
+  status           String        @default("UPDATED")
+  lastSyncedAt     DateTime?     @db.Timestamptz() @map("last_synced_at")
+  createdAt        DateTime      @default(now()) @db.Timestamptz() @map("created_at")
+  updatedAt        DateTime      @updatedAt @db.Timestamptz() @map("updated_at")
+  accounts         Account[]
+
+  @@index([userId])
+  @@map("pluggy_connections")
 }
 
 model Category {
@@ -91,6 +112,7 @@ model Transaction {
   // ciclo) — aqui é uma data fixa, já que cada lançamento é uma ocorrência.
   dueDate     DateTime?       @db.Timestamptz() @map("due_date")
   isPaid      Boolean         @default(false) @map("is_paid")
+  pluggyTransactionId String? @unique @map("pluggy_transaction_id")
   createdAt   DateTime        @default(now()) @db.Timestamptz() @map("created_at")
   updatedAt   DateTime        @updatedAt @db.Timestamptz() @map("updated_at")
 
@@ -98,6 +120,23 @@ model Transaction {
   @@index([categoryId])
   @@index([accountId, dueDate, isPaid])
   @@map("transactions")
+}
+
+model PluggyWebhookEvent {
+  id                  Int      @id @default(autoincrement())
+  eventId             String   @unique @map("event_id")
+  event               String
+  payload             Json
+  status              String   @default("QUEUED")
+  attempts            Int      @default(0)
+  lastError           String?  @map("last_error")
+  receivedAt          DateTime @default(now()) @db.Timestamptz() @map("received_at")
+  processingStartedAt DateTime? @db.Timestamptz() @map("processing_started_at")
+  nextAttemptAt       DateTime? @db.Timestamptz() @map("next_attempt_at")
+  processedAt         DateTime? @db.Timestamptz() @map("processed_at")
+
+  @@index([status, nextAttemptAt, receivedAt])
+  @@map("pluggy_webhook_events")
 }
 
 model Budget {

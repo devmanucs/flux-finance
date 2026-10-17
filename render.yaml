@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: flux-finance-api
+    runtime: node
+    region: ohio
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm turbo run build --filter=@flux-finance/api...
+    startCommand: pnpm --filter @flux-finance/api start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: WEB_APP_URL
+        sync: false
+      - key: API_PUBLIC_URL
+        fromService:
+          type: web
+          name: flux-finance-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: PLUGGY_CLIENT_ID
+        sync: false
+      - key: PLUGGY_CLIENT_SECRET
+        sync: false
+      - key: PLUGGY_WEBHOOK_SECRET
+        generateValue: true

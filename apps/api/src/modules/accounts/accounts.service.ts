@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Account } from "@flux-finance/database";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateAccountDto } from "./dto/create-account.dto";
@@ -61,7 +61,10 @@ export class AccountsService {
   }
 
   async update(id: number, dto: UpdateAccountDto, userId: number) {
-    await this.findOneRaw(id, userId);
+    const existing = await this.findOneRaw(id, userId);
+    if (existing.pluggyAccountId) {
+      throw new BadRequestException("Contas sincronizadas pelo Pluggy são atualizadas pelo banco.");
+    }
 
     const account = await this.prisma.client.account.update({
       where: { id },
@@ -71,7 +74,10 @@ export class AccountsService {
   }
 
   async remove(id: number, userId: number) {
-    await this.findOneRaw(id, userId);
+    const existing = await this.findOneRaw(id, userId);
+    if (existing.pluggyAccountId) {
+      throw new BadRequestException("Desconecte o banco pelo Pluggy antes de excluir esta conta.");
+    }
     // Cascade no schema remove as transactions dessa conta junto.
     await this.prisma.client.account.delete({ where: { id } });
   }

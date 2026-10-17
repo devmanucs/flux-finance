@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button } from "@flux-finance/ui/components/ui/button";
 import { FormFields } from "@/components/forms/form-fields";
+import { formatMoney } from "@/lib/format-money";
 import { useAccounts } from "@/features/accounts";
 import { useCategories } from "@/features/categories";
 import {
@@ -87,6 +88,14 @@ function TransactionFormInner({
     };
 
     if (isEditing && transaction) {
+      if (transaction.pluggyTransactionId) {
+        updateTransaction(
+          { id: String(transaction.id), formData: { categoryId: values.categoryId } },
+          { onSuccess: () => onSuccess?.() },
+        );
+        return;
+      }
+
       updateTransaction(
         { id: String(transaction.id), formData: basePayload },
         { onSuccess: () => onSuccess?.() },
@@ -132,22 +141,36 @@ function TransactionFormInner({
   return (
     <FormProvider {...form}>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <FormFields.Select<TransactionFormValues>
-          name="accountId"
-          label="Conta"
-          options={accountOptions}
-        />
-        <FormFields.Input<TransactionFormValues>
-          name="description"
-          label="Descrição"
-          placeholder="Ex.: Mercado"
-        />
-        <FormFields.Money<TransactionFormValues> name="amount" label="Valor" />
-        <FormFields.Select<TransactionFormValues>
-          name="kind"
-          label="Tipo"
-          options={transactionKindOptions}
-        />
+        {transaction?.pluggyTransactionId ? (
+          <div className="rounded-md border bg-muted/30 p-3 text-sm">
+            <p className="font-medium">{transaction.description}</p>
+            <p className="mt-1 text-muted-foreground">
+              {formatMoney(transaction.amount)} · {transaction.kind === "INCOME" ? "Receita" : "Despesa"}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Descrição, data e valor são atualizados pelo Pluggy. Você pode escolher uma categoria.
+            </p>
+          </div>
+        ) : (
+          <>
+            <FormFields.Select<TransactionFormValues>
+              name="accountId"
+              label="Conta"
+              options={accountOptions}
+            />
+            <FormFields.Input<TransactionFormValues>
+              name="description"
+              label="Descrição"
+              placeholder="Ex.: Mercado"
+            />
+            <FormFields.Money<TransactionFormValues> name="amount" label="Valor" />
+            <FormFields.Select<TransactionFormValues>
+              name="kind"
+              label="Tipo"
+              options={transactionKindOptions}
+            />
+          </>
+        )}
         <FormFields.Select<TransactionFormValues>
           name="categoryId"
           label="Categoria (opcional)"
@@ -158,17 +181,21 @@ function TransactionFormInner({
           }
           options={categoryOptions}
         />
-        <FormFields.Date<TransactionFormValues>
-          name="date"
-          label="Data"
-          placeholder="Selecionar data"
-        />
-        <FormFields.Date<TransactionFormValues>
-          name="dueDate"
-          label="Vencimento (opcional)"
-          placeholder="Selecionar vencimento"
-        />
-        <FormFields.Switch<TransactionFormValues> name="isPaid" label="Já paga" />
+        {!transaction?.pluggyTransactionId ? (
+          <>
+            <FormFields.Date<TransactionFormValues>
+              name="date"
+              label="Data"
+              placeholder="Selecionar data"
+            />
+            <FormFields.Date<TransactionFormValues>
+              name="dueDate"
+              label="Vencimento (opcional)"
+              placeholder="Selecionar vencimento"
+            />
+            <FormFields.Switch<TransactionFormValues> name="isPaid" label="Já paga" />
+          </>
+        ) : null}
         {!isEditing ? (
           <>
             <FormFields.Switch<TransactionFormValues>

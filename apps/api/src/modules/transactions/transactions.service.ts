@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountType, Prisma, TransactionKind } from "@flux-finance/database";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateRecurringTransactionDto } from "./dto/create-recurring-transaction.dto";
@@ -142,6 +142,27 @@ export class TransactionsService {
     const existing = await this.findOne(id, userId);
     const oldAccount = existing.account;
 
+    if (existing.pluggyTransactionId) {
+      const providerFieldsChanged =
+        (dto.accountId !== undefined && dto.accountId !== existing.accountId) ||
+        (dto.description !== undefined && dto.description !== existing.description) ||
+        (dto.amount !== undefined && new Prisma.Decimal(dto.amount).comparedTo(existing.amount) !== 0) ||
+        (dto.kind !== undefined && dto.kind !== existing.kind) ||
+        (dto.date !== undefined && new Date(dto.date).getTime() !== existing.date.getTime()) ||
+        (dto.dueDate !== undefined && (dto.dueDate ? new Date(dto.dueDate).getTime() : null) !== (existing.dueDate?.getTime() ?? null)) ||
+        (dto.isPaid !== undefined && dto.isPaid !== existing.isPaid);
+
+      if (providerFieldsChanged) {
+        throw new BadRequestException("Os dados financeiros desta transação vêm do Pluggy; você pode editar a categoria.");
+      }
+
+      if (dto.categoryId === undefined || dto.categoryId === existing.categoryId) return existing;
+      return this.prisma.client.transaction.update({
+        where: { id },
+        data: { categoryId: dto.categoryId },
+      });
+    }
+
     const newAccount =
       dto.accountId !== undefined && dto.accountId !== oldAccount.id
         ? await this.getOwnedAccount(dto.accountId, userId)
@@ -185,6 +206,9 @@ export class TransactionsService {
 
   async remove(id: number, userId: number) {
     const existing = await this.findOne(id, userId);
+    if (existing.pluggyTransactionId) {
+      throw new BadRequestException("Transações sincronizadas pelo Pluggy não podem ser excluídas.");
+    }
     const reverseDelta = this.appliedDelta(
       existing.account.type,
       existing.kind,

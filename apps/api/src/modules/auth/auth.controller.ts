@@ -28,7 +28,7 @@ export class AuthController {
 
     response.cookie(COOKIE_NAME, token, {
       httpOnly: true,
-      // Em produção, web (Vercel) e api (Railway) ficam em domínios
+      // Em produção, web (Vercel) e api (Render) ficam em domínios
       // diferentes, então o cookie é cross-site: precisa de sameSite=none
       // + secure para o browser aceitar mandá-lo de volta na API.
       sameSite: isProduction ? "none" : "lax",

@@ -80,21 +80,29 @@ function TransactionStatusDot({ transaction }: { transaction: TransactionWithCat
         render={
           <button
             type="button"
-            disabled={isPending}
+            disabled={isPending || Boolean(transaction.pluggyTransactionId)}
             className="inline-flex size-5 items-center justify-center rounded-full disabled:opacity-50"
-            aria-label={`${meta.shortLabel} — clique para marcar como ${transaction.isPaid ? "não paga" : "paga"}`}
+            aria-label={transaction.pluggyTransactionId
+              ? `${meta.shortLabel} — status sincronizado pelo Pluggy`
+              : `${meta.shortLabel} — clique para marcar como ${transaction.isPaid ? "não paga" : "paga"}`}
             onClick={() =>
-              mutate({
-                id: String(transaction.id),
-                formData: { isPaid: !transaction.isPaid },
-              })
+              transaction.pluggyTransactionId
+                ? undefined
+                : mutate({
+                    id: String(transaction.id),
+                    formData: { isPaid: !transaction.isPaid },
+                  })
             }
           />
         }
       >
         <span className={`size-2.5 rounded-full ${meta.dotClassName}`} />
       </TooltipTrigger>
-      <TooltipContent>{meta.shortLabel} — clique para alternar</TooltipContent>
+          <TooltipContent>
+            {transaction.pluggyTransactionId
+              ? `${meta.shortLabel} — status sincronizado pelo Pluggy`
+              : `${meta.shortLabel} — clique para alternar`}
+          </TooltipContent>
     </Tooltip>
   );
 }
@@ -278,7 +286,9 @@ export function TransactionList() {
                               </Button>
                             }
                           />
-                          <DeleteTransactionButton transaction={transaction} />
+                          {!transaction.pluggyTransactionId ? (
+                            <DeleteTransactionButton transaction={transaction} />
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

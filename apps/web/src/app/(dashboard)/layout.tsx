@@ -3,10 +3,12 @@ import { SidebarInset, SidebarProvider } from "@flux-finance/ui/components/ui/si
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { AuthGuard } from "@/features/auth";
+import { PluggySyncWatcher } from "@/features/pluggy/components/pluggy-connections-panel";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
+      <PluggySyncWatcher />
       <SidebarProvider>
         <Suspense fallback={<div className="w-(--sidebar-width) border-r border-sidebar-border" />}>
           <AppSidebar />

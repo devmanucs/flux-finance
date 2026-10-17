@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { Spinner } from "@flux-finance/ui/components/ui/spinner";
 import { useCurrentUser } from "../api/queries";
 
-// A API fica num domínio separado (Railway), então o cookie de sessão não é
+// A API fica num domínio separado (Render), então o cookie de sessão não é
 // visível para o Next rodando na Vercel — a checagem de rota protegida só
 // pode acontecer no client, batendo em /auth/me.
 export function AuthGuard({ children }: { children: React.ReactNode }) {

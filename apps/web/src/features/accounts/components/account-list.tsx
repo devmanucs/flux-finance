@@ -168,7 +168,12 @@ export function AccountList() {
               <Card key={account.id}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{account.name}</CardTitle>
+                    <div className="flex flex-col gap-1">
+                      <CardTitle className="text-base">{account.name}</CardTitle>
+                      {account.pluggyAccountId ? (
+                        <span className="text-[11px] text-muted-foreground">Sincronizada pelo Pluggy</span>
+                      ) : null}
+                    </div>
                     <PaymentStatusDot account={account} />
                   </div>
                   <p className="text-xs text-muted-foreground">{typeLabel(account.type)}</p>
@@ -194,15 +199,21 @@ export function AccountList() {
                   ) : null}
                 </CardContent>
                 <CardFooter className="justify-end gap-1">
-                  <AccountFormDialog
-                    account={account}
-                    trigger={
-                      <Button variant="ghost" size="icon-sm" aria-label={`Editar ${account.name}`}>
-                        <Icon icon={PencilEdit02Icon} />
-                      </Button>
-                    }
-                  />
-                  <DeleteAccountButton account={account} />
+                  {account.pluggyAccountId ? (
+                    <span className="text-xs text-muted-foreground">Saldo atualizado pelo banco</span>
+                  ) : (
+                    <>
+                      <AccountFormDialog
+                        account={account}
+                        trigger={
+                          <Button variant="ghost" size="icon-sm" aria-label={`Editar ${account.name}`}>
+                            <Icon icon={PencilEdit02Icon} />
+                          </Button>
+                        }
+                      />
+                      <DeleteAccountButton account={account} />
+                    </>
+                  )}
                 </CardFooter>
               </Card>
             );

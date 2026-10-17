@@ -7,6 +7,7 @@ import { AccountsModule } from "./modules/accounts/accounts.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { PluggyModule } from "./modules/pluggy/pluggy.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 
 @Module({
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
     CategoriesModule,
     TransactionsModule,
     DashboardModule,
+    PluggyModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
