@@ -1,35 +1,22 @@
 import { Suspense } from "react";
-import { Add01Icon } from "@hugeicons/core-free-icons";
-import { Button } from "@flux-finance/ui/components/ui/button";
-import { Icon } from "@flux-finance/ui/components/ui/icon";
-import { PluggyConnectionsPanel } from "@/features/pluggy/components/pluggy-connections-panel";
-import {
-  AccountFormDialog,
-  AccountList,
-  RelatedTransactionsSection,
-} from "@/features/accounts";
+import { PluggyConnectProvider } from "@/features/pluggy/components/pluggy-connections-panel";
+import { AccountList, NewAccountMenu, RelatedTransactionsSection } from "@/features/accounts";
 
 export default function AccountsPage() {
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-heading text-xl font-semibold">Contas e cartões</h2>
-        <AccountFormDialog
-          trigger={
-            <Button>
-              <Icon icon={Add01Icon} data-icon="inline-start" />
-              Nova conta
-            </Button>
-          }
-        />
+    <PluggyConnectProvider>
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">Contas e cartões</h2>
+          <NewAccountMenu />
+        </div>
+        <Suspense fallback={null}>
+          <AccountList />
+        </Suspense>
+        <Suspense fallback={null}>
+          <RelatedTransactionsSection />
+        </Suspense>
       </div>
-      <PluggyConnectionsPanel />
-      <Suspense fallback={null}>
-        <AccountList />
-      </Suspense>
-      <Suspense fallback={null}>
-        <RelatedTransactionsSection />
-      </Suspense>
-    </div>
+    </PluggyConnectProvider>
   );
 }

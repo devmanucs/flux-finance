@@ -34,14 +34,25 @@ function toFormValues(account?: Account): AccountFormValues {
   };
 }
 
+// Sem `trigger`, o dialog é controlado de fora via `open`/`onOpenChange`
+// (ex.: aberto por um item de menu).
 export function AccountFormDialog({
   trigger,
   account,
+  open: controlledOpen,
+  onOpenChange,
 }: {
-  trigger: ReactNode;
+  trigger?: ReactNode;
   account?: Account;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = (value: boolean) => {
+    setUncontrolledOpen(value);
+    onOpenChange?.(value);
+  };
   const isEditing = Boolean(account);
 
   const form = useForm<AccountFormValues>({
@@ -88,7 +99,7 @@ export function AccountFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger as React.ReactElement} />
+      {trigger ? <DialogTrigger render={trigger as React.ReactElement} /> : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar conta" : "Nova conta"}</DialogTitle>

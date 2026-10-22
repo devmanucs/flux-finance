@@ -31,6 +31,11 @@ export class PluggyController {
     return this.pluggyService.listConnections(user.id);
   }
 
+  @Post("sync")
+  syncAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.pluggyService.syncAll(user.id);
+  }
+
   @Post("items/:itemId/sync")
   syncItem(
     @Param("itemId") itemId: string,

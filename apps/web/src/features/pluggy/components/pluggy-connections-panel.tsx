@@ -1,20 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Button } from "@flux-finance/ui/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flux-finance/ui/components/ui/card";
-import { Skeleton } from "@flux-finance/ui/components/ui/skeleton";
 import { authApi } from "@/lib/api/axios-instance";
 
 const PluggyWidget = dynamic(
   () => import("react-pluggy-connect").then((module) => module.PluggyConnect),
-  { ssr: false, loading: () => <p className="text-xs text-muted-foreground">Abrindo conexão segura...</p> },
+  { ssr: false },
 );
 
-const CONNECTIONS_QUERY_KEY = ["pluggy-connections"] as const;
+export const CONNECTIONS_QUERY_KEY = ["pluggy-connections"] as const;
 const DATA_QUERY_KEYS = [
   "accounts",
   "transactions",
@@ -23,7 +20,7 @@ const DATA_QUERY_KEYS = [
   "dashboard-by-category",
 ];
 
-type PluggyConnection = {
+export type PluggyConnection = {
   id: number;
   itemId: string;
   institutionName: string;
@@ -32,12 +29,20 @@ type PluggyConnection = {
   accountCount: number;
 };
 
-type PluggyWidgetSession = {
-  accessToken: string;
-  itemId?: string;
-};
+function apiErrorMessage(error: unknown, fallback: string) {
+  const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+  if (!message) return fallback;
+  return Array.isArray(message) ? message.join(", ") : message;
+}
 
-function usePluggyConnections(poll = false) {
+async function invalidateBankData(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    ...DATA_QUERY_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey: [queryKey] })),
+    queryClient.invalidateQueries({ queryKey: CONNECTIONS_QUERY_KEY }),
+  ]);
+}
+
+export function usePluggyConnections(poll = false) {
   return useQuery({
     queryKey: CONNECTIONS_QUERY_KEY,
     queryFn: async () => {
@@ -51,21 +56,24 @@ function usePluggyConnections(poll = false) {
   });
 }
 
-function statusLabel(status: string) {
-  const normalized = status.toUpperCase();
-  if (normalized === "UPDATED") return "Atualizada";
-  if (normalized === "SYNCING" || normalized === "UPDATING") return "Sincronizando";
-  if (normalized.includes("WAITING_USER")) return "Precisa da sua atenção";
-  if (normalized.includes("ERROR") || normalized.includes("LOGIN")) return "Verifique a conexão";
-  if (normalized === "DELETED") return "Desconectada";
-  return normalized.replaceAll("_", " ").toLowerCase();
-}
-
-function formatSyncDate(value: string | null) {
-  if (!value) return "Aguardando primeira sincronização";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sincronização recebida";
-  return `Atualizada em ${date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`;
+// Puxa da Pluggy o que o banco já atualizou (as atualizações em si acontecem
+// na própria Pluggy/MeuPluggy; aqui só buscamos o resultado).
+export function useSyncBanks() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await authApi.post<PluggyConnection[]>("/pluggy/sync", {}, { showToast: false });
+      return response.data;
+    },
+    onSuccess: async () => {
+      await invalidateBankData(queryClient);
+      toast.success("Bancos atualizados.");
+    },
+    onError: async (error) => {
+      await queryClient.invalidateQueries({ queryKey: CONNECTIONS_QUERY_KEY });
+      toast.error(apiErrorMessage(error, "Não foi possível atualizar seus bancos agora."));
+    },
+  });
 }
 
 export function PluggySyncWatcher() {
@@ -92,122 +100,78 @@ export function PluggySyncWatcher() {
   return null;
 }
 
-export function PluggyConnectionsPanel() {
-  const queryClient = useQueryClient();
-  const { data: connections = [], isPending, isError, refetch } = usePluggyConnections();
-  const [widget, setWidget] = useState<PluggyWidgetSession | null>(null);
-  const [busyItemId, setBusyItemId] = useState<string | null>(null);
+type PluggyConnectContextValue = {
+  connect: () => void;
+  isBusy: boolean;
+};
 
-  async function startWidget(itemId?: string) {
+const PluggyConnectContext = createContext<PluggyConnectContextValue | null>(null);
+
+export function usePluggyConnect() {
+  const context = useContext(PluggyConnectContext);
+  if (!context) throw new Error("usePluggyConnect precisa estar dentro de <PluggyConnectProvider>.");
+  return context;
+}
+
+// Dono do widget da Pluggy: qualquer botão da página ("Nova conta",
+// "Conectar outro banco") abre a mesma instância via usePluggyConnect().
+export function PluggyConnectProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  async function connect() {
+    if (accessToken || isStarting || isSyncing) return;
+    setIsStarting(true);
     try {
-      const response = await authApi.post<{ accessToken: string }>(
-        "/pluggy/connect-token",
-        itemId ? { itemId } : {},
-        { showToast: false },
-      );
-      setWidget({ accessToken: response.data.accessToken, itemId });
+      const response = await authApi.post<{ accessToken: string }>("/pluggy/connect-token", {}, { showToast: false });
+      setAccessToken(response.data.accessToken);
     } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message ??
-        "Não foi possível iniciar a conexão com o Pluggy.";
-      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      toast.error(apiErrorMessage(error, "Não foi possível iniciar a conexão com o Pluggy."));
+    } finally {
+      setIsStarting(false);
     }
   }
 
   async function handleSuccess(itemId: string) {
-    setWidget(null);
-    setBusyItemId(itemId);
+    setAccessToken(null);
+    setIsSyncing(true);
+    const toastId = toast.loading("Trazendo contas e transações do banco...");
     try {
       await authApi.post(`/pluggy/items/${encodeURIComponent(itemId)}/sync`, {}, { showToast: false });
-      toast.success("Banco conectado e dados sincronizados.");
-      for (const queryKey of DATA_QUERY_KEYS) {
-        await queryClient.invalidateQueries({ queryKey: [queryKey] });
-      }
-      await queryClient.invalidateQueries({ queryKey: CONNECTIONS_QUERY_KEY });
+      await invalidateBankData(queryClient);
+      toast.success("Banco conectado e dados sincronizados.", { id: toastId });
     } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message ??
-        "A conexão foi feita, mas não foi possível sincronizar os dados agora.";
-      toast.error(Array.isArray(message) ? message.join(", ") : message);
       await queryClient.invalidateQueries({ queryKey: CONNECTIONS_QUERY_KEY });
+      toast.error(apiErrorMessage(error, "A conexão foi feita, mas não foi possível sincronizar os dados agora."), {
+        id: toastId,
+      });
     } finally {
-      setBusyItemId(null);
+      setIsSyncing(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="space-y-1">
-          <CardTitle className="text-base">Conexões bancárias</CardTitle>
-          <CardDescription>
-            Conecte pelo Open Finance. O Flux Finance atualiza as informações quando a Pluggy recebe dados novos do banco.
-          </CardDescription>
-        </div>
-        <Button type="button" onClick={() => void startWidget()} disabled={Boolean(widget) || Boolean(busyItemId)}>
-          Conectar banco
-        </Button>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {widget ? (
-          <PluggyWidget
-            connectToken={widget.accessToken}
-            updateItem={widget.itemId}
-            includeSandbox={process.env.NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX === "true"}
-            language="pt-BR"
-            onSuccess={({ item }) => handleSuccess(item.id)}
-            onError={({ message }) => {
-              setWidget(null);
-              toast.error(message || "Não foi possível conectar o banco.");
-            }}
-            onLoadError={(error) => {
-              setWidget(null);
-              toast.error(error.message || "Não foi possível abrir a conexão segura do Pluggy.");
-            }}
-            onClose={() => setWidget(null)}
-          />
-        ) : null}
-
-        {isPending ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-          </div>
-        ) : isError ? (
-          <div className="flex items-center justify-between gap-4 rounded-md border p-3 text-sm">
-            <span className="text-muted-foreground">Não foi possível carregar suas conexões.</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
-              Tentar novamente
-            </Button>
-          </div>
-        ) : connections.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum banco conectado ainda. A conexão não altera os lançamentos manuais que você já cadastrou.
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y">
-            {connections.map((connection) => (
-              <li key={connection.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{connection.institutionName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {statusLabel(connection.status)} · {connection.accountCount} {connection.accountCount === 1 ? "conta" : "contas"} · {formatSyncDate(connection.lastSyncedAt)}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={Boolean(widget) || busyItemId === connection.itemId}
-                  onClick={() => void startWidget(connection.itemId)}
-                >
-                  {busyItemId === connection.itemId ? "Sincronizando..." : "Atualizar conexão"}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <PluggyConnectContext.Provider value={{ connect: () => void connect(), isBusy: Boolean(accessToken) || isStarting || isSyncing }}>
+      {children}
+      {accessToken ? (
+        <PluggyWidget
+          connectToken={accessToken}
+          includeSandbox={process.env.NEXT_PUBLIC_PLUGGY_INCLUDE_SANDBOX === "true"}
+          language="pt-BR"
+          onSuccess={({ item }) => handleSuccess(item.id)}
+          onError={({ message }) => {
+            setAccessToken(null);
+            toast.error(message || "Não foi possível conectar o banco.");
+          }}
+          onLoadError={(error) => {
+            setAccessToken(null);
+            toast.error(error.message || "Não foi possível abrir a conexão segura do Pluggy.");
+          }}
+          onClose={() => setAccessToken(null)}
+        />
+      ) : null}
+    </PluggyConnectContext.Provider>
   );
 }

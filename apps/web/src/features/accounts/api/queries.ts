@@ -9,6 +9,29 @@ export type Account = Omit<PrismaAccount, "paidAt"> & {
   isPaid: boolean;
 };
 
+// Formato de `account.creditCard`, gravado pela sync do Pluggy
+// (CreditCardSummary em pluggy.service.ts).
+export type CreditCardSummary = {
+  limit: number | null;
+  available: number | null;
+  used: number | null;
+  openBill: { amount: number; period: string; closeDate: string | null; dueDate: string | null };
+  lastBill: {
+    total: number;
+    paid: number;
+    minimumPayment: number | null;
+    closeDate: string | null;
+    dueDate: string;
+  } | null;
+  futureInstallments: number;
+};
+
+export function getCreditCardSummary(account: Pick<Account, "creditCard">) {
+  const value = account.creditCard;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !("openBill" in value)) return null;
+  return value as unknown as CreditCardSummary;
+}
+
 const ROUTE = "/accounts";
 export const ACCOUNTS_QUERY_KEY = "accounts";
 

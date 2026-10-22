@@ -5,6 +5,8 @@ import {
 import {
   PluggyClient,
   type Account as PluggySdkAccount,
+  type CreditCardBills,
+  type Investment as PluggySdkInvestment,
   type Item as PluggySdkItem,
   type Transaction as PluggySdkTransaction,
 } from "pluggy-sdk";
@@ -16,13 +18,32 @@ export type PluggyItem = Pick<
 
 export type PluggyAccount = Pick<
   PluggySdkAccount,
-  "id" | "itemId" | "name" | "marketingName" | "type" | "subtype" | "balance" | "currencyCode"
+  "id" | "itemId" | "name" | "marketingName" | "type" | "subtype" | "balance" | "currencyCode" | "bankData"
 >;
+
+export type PluggyAccountWithCredit = PluggyAccount & Pick<PluggySdkAccount, "creditData">;
 
 export type PluggyTransaction = Pick<
   PluggySdkTransaction,
-  "id" | "accountId" | "description" | "amount" | "type" | "status"
+  "id" | "accountId" | "description" | "amount" | "type" | "status" | "categoryId" | "creditCardMetadata"
 > & { date: string };
+
+export type PluggyCategory = {
+  id: string;
+  description: string;
+  descriptionTranslated?: string;
+  parentId?: string;
+};
+
+export type PluggyInvestment = Pick<
+  PluggySdkInvestment,
+  "id" | "name" | "type" | "subtype" | "balance" | "status"
+>;
+
+export type PluggyBill = Pick<
+  CreditCardBills,
+  "id" | "dueDate" | "billClosingDate" | "totalAmount" | "minimumPaymentAmount" | "payments"
+>;
 
 @Injectable()
 export class PluggyApiService {
@@ -32,7 +53,6 @@ export class PluggyApiService {
     options: {
       clientUserId: string;
       webhookUrl?: string;
-      avoidDuplicates: boolean;
     },
     itemId?: string,
   ) {
@@ -46,9 +66,48 @@ export class PluggyApiService {
     return this.run(() => this.getClient().fetchItem(itemId));
   }
 
-  async listAccounts(itemId: string): Promise<PluggyAccount[]> {
+  async listAccounts(itemId: string): Promise<PluggyAccountWithCredit[]> {
     const response = await this.run(() => this.getClient().fetchAccounts(itemId));
     return response.results;
+  }
+
+  // A árvore de categorias da Pluggy é fixa; busca uma vez por processo.
+  private categories: Promise<Map<string, PluggyCategory>> | null = null;
+
+  listCategories(): Promise<Map<string, PluggyCategory>> {
+    this.categories ??= this.run(async () => {
+      const response = await this.getClient().fetchCategories();
+      return new Map(
+        (response.results as PluggyCategory[]).map((category) => [category.id, category]),
+      );
+    }).catch((error) => {
+      this.categories = null;
+      throw error;
+    });
+    return this.categories;
+  }
+
+  async listInvestments(itemId: string): Promise<PluggyInvestment[]> {
+    return this.fetchAllPages((page) =>
+      this.getClient().fetchInvestments(itemId, undefined, { page, pageSize: 100 }),
+    );
+  }
+
+  async listCreditCardBills(accountId: string): Promise<PluggyBill[]> {
+    return this.fetchAllPages((page) =>
+      this.getClient().fetchCreditCardBills(accountId, { page, pageSize: 100 }),
+    );
+  }
+
+  private async fetchAllPages<T>(
+    fetchPage: (page: number) => Promise<{ results: T[]; totalPages: number }>,
+  ): Promise<T[]> {
+    const results: T[] = [];
+    for (let page = 1; ; page += 1) {
+      const response = await this.run(() => fetchPage(page));
+      results.push(...response.results);
+      if (page >= response.totalPages || response.results.length === 0) return results;
+    }
   }
 
   async listTransactions(

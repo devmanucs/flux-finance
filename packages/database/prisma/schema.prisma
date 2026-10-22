@@ -4,7 +4,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime pelo pooler em modo transação (6543, ?pgbouncer=true); migrations
+  // precisam da conexão de sessão (5432), por isso o directUrl separado.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum TransactionKind {
@@ -58,6 +61,9 @@ model Account {
   // patrimônio líquido mas fica de fora do saldo total (gasto disponível).
   isReserved   Boolean       @default(false) @map("is_reserved")
   pluggyAccountId String?    @unique @map("pluggy_account_id")
+  // Resumo do cartão calculado na sync do Pluggy: limite, fatura aberta,
+  // última fatura fechada e parcelas futuras (ver pluggy.service.ts).
+  creditCard   Json?         @map("credit_card")
   pluggyConnectionId Int?    @map("pluggy_connection_id")
   pluggyConnection PluggyConnection? @relation(fields: [pluggyConnectionId], references: [id], onDelete: SetNull)
   createdAt    DateTime      @default(now()) @db.Timestamptz() @map("created_at")
@@ -91,6 +97,8 @@ model Category {
   name         String
   kind         TransactionKind @default(EXPENSE)
   color        String?
+  // Categoria de topo da Pluggy (ex.: "05000000"); null = criada pela usuária.
+  pluggyCategoryId String?     @unique @map("pluggy_category_id")
   transactions Transaction[]
   budgets      Budget[]
 

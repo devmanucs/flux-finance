@@ -14,10 +14,5 @@ export function RelatedTransactionsSection() {
 
   if (!isPaymentStatus(statusParam)) return null;
 
-  return (
-    <div className="flex flex-col gap-3">
-      <h3 className="font-heading text-lg font-semibold">Transações</h3>
-      <TransactionList />
-    </div>
-  );
+  return <TransactionList variant="compact" title="Transações" />;
 }
