@@ -4,6 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build", "db:generate"],
+      "env": ["API_PROXY_URL"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
